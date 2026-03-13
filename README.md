@@ -1,13 +1,24 @@
-﻿# BJ Modas Masculina - Site de Vendas de Gravatas
+# BJ Modas Masculina - React + Express
 
-Aplicação web completa com:
+Aplicacao web de moda social masculina com:
 
-- vitrine de produtos (gravatas)
-- cadastro/login de clientes
-- login de administrador
-- gestão de produtos e estoque
-- pedidos com atualização de status
-- banco de dados SQLite local (`database.sqlite`)
+- vitrine de produtos em React
+- login e cadastro de clientes
+- portal administrativo
+- gestao de produtos e estoque
+- pedidos com atualizacao de status
+- banco SQLite local (`database.sqlite`)
+
+## Arquitetura atual
+
+- frontend: SPA em React escrita somente com HTML, CSS e JavaScript
+- backend: Express servindo arquivos estaticos e API JSON
+- banco: SQLite com `better-sqlite3`
+
+Observacao:
+- o React e carregado no navegador via modulos ESM no arquivo `public/app.js`
+- nao ha TypeScript no projeto
+- nao ha mais renderizacao por EJS
 
 ## Requisitos
 
@@ -15,13 +26,13 @@ Aplicação web completa com:
 
 ## Como executar
 
-1. Instale dependências:
+1. Instale as dependencias:
 
 ```bash
 npm install
 ```
 
-Se estiver no PowerShell com política restrita, use:
+No PowerShell, se precisar:
 
 ```bash
 npm.cmd install
@@ -33,85 +44,70 @@ npm.cmd install
 npm start
 ```
 
-Ou:
-
-```bash
-npm.cmd start
-```
-
 3. Abra no navegador:
 
 - http://localhost:3000
 
-Observação sobre porta:
-- padrão: `3000`
-- se `3000` estiver ocupada, a aplicação tenta automaticamente a próxima porta livre (`3001`, `3002`, etc.)
-- para forçar uma porta específica: `set PORT=4000 && npm.cmd start` (Windows CMD)
+Observacao sobre porta:
+
+- padrao: `3000`
+- se `3000` estiver ocupada, a aplicacao tenta automaticamente a proxima porta livre
+- para forcar uma porta especifica no PowerShell:
+
+```powershell
+$env:PORT=4000
+npm.cmd start
+```
 
 ## Acesso inicial do administrador
 
-- E-mail: `admin@bjmodas.com`
-- Senha: `admin123`
-
-Altere a senha depois do primeiro acesso em uma evolução futura.
+- e-mail: `admin@bjmodas.com`
+- senha: `admin123`
 
 ## Estrutura principal
 
-- `app.js`: servidor, rotas, autenticação, regras de negócio
-- `db.js`: inicialização e schema do banco
-- `views/`: páginas EJS
-- `public/styles.css`: estilos
-- `docs/IMAGE_STANDARD.md`: padrão operacional de imagens
+- `app.js`: servidor Express e rotas da API
+- `db.js`: schema e inicializacao do banco
+- `public/index.html`: entrada da SPA
+- `public/app.js`: interface React em JavaScript puro
+- `public/styles.css`: estilos globais
+- `docs/IMAGE_STANDARD.md`: padrao operacional de imagens
 
-## Upload de imagem com Cloudinary (admin)
+## Endpoints principais
 
-Foi adicionada a rota:
-- `POST /admin/upload-image` (restrita ao admin logado)
+- `GET /api/session`
+- `GET /api/products`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/orders/my`
+- `POST /api/orders`
+- `GET /api/admin/dashboard`
+- `GET /api/admin/products`
+- `POST /api/admin/products`
+- `PUT /api/admin/products/:id`
+- `DELETE /api/admin/products/:id`
+- `GET /api/admin/orders`
+- `PATCH /api/admin/orders/:id/status`
+- `POST /api/admin/upload-image`
 
-No formulário de produto (`/admin/products/new` e edição) agora existe:
-- campo para selecionar arquivo
-- botão `Enviar para Cloudinary`
-- preenchimento automático de `image_url`
+## Upload de imagem com Cloudinary
 
-Configuração:
-1. Copie `.env.example` para `.env`.
-2. Preencha:
-   - `CLOUDINARY_CLOUD_NAME`
-   - `CLOUDINARY_API_KEY`
-   - `CLOUDINARY_API_SECRET`
-   - `SESSION_SECRET`
-3. Inicie a aplicação normalmente.
+Defina estas variaveis no ambiente antes de iniciar a aplicacao:
 
-Limites atuais da rota:
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `SESSION_SECRET`
+
+Limites atuais:
+
 - formatos: JPG, PNG, WEBP
-- tamanho máximo: 5MB
+- tamanho maximo: 5MB
 
-## Padrão de imagens (celular -> site)
+## Proximas evolucoes sugeridas
 
-Use o guia:
-- `docs/IMAGE_STANDARD.md`
-
-Resumo rápido:
-- produto: 1000x1250
-- banner hero: 1920x1080
-- nome de arquivo padronizado (sem espaços/acentos)
-- fluxo recomendado: foto -> compressão -> upload no admin -> salvar produto
-
-## Deploy na Hostinger
-
-Para esse projeto (Node + SQLite + sessões), o recomendado é:
-- usar VPS da Hostinger (não plano de hospedagem compartilhada)
-
-Boas práticas para produção:
-- usar PM2 para manter o processo ativo
-- usar Nginx como proxy reverso
-- habilitar HTTPS
-- mover banco para PostgreSQL/MySQL em crescimento de tráfego
-- manter imagens no Cloudinary (não no disco da VPS)
-
-## Próximas evoluções sugeridas
-
-- carrinho com múltiplos itens
-- recuperação de senha
-- painel com relatórios por período
-- deploy com CI/CD
+- carrinho com multiplos itens
+- busca e filtro por categoria
+- recuperacao de senha
+- migracao do React CDN para build local caso queira deploy mais controlado

@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
@@ -10,12 +10,12 @@ initDb();
 
 const app = express();
 const DEFAULT_PORT = Number(process.env.PORT) || 3000;
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const INDEX_FILE = path.join(PUBLIC_DIR, 'index.html');
 
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR));
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -44,15 +44,48 @@ app.use(
   })
 );
 
-app.use((req, res, next) => {
-  res.locals.currentUser = req.session.user || null;
-  res.locals.flash = req.session.flash || null;
-  delete req.session.flash;
-  next();
-});
+function sendError(res, status, message, extra = {}) {
+  return res.status(status).json({
+    ok: false,
+    message,
+    ...extra,
+  });
+}
 
-function setFlash(req, type, text) {
-  req.session.flash = { type, text };
+function serializeUser(user) {
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
+}
+
+function serializeProduct(product) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description || '',
+    priceCents: product.price_cents,
+    stock: product.stock,
+    imageUrl: product.image_url || '',
+    active: Boolean(product.active),
+    createdAt: product.created_at,
+    updatedAt: product.updated_at,
+  };
+}
+
+function serializeOrder(order) {
+  return {
+    id: order.id,
+    totalCents: order.total_cents,
+    status: order.status,
+    createdAt: order.created_at,
+    customerName: order.customer_name || '',
+    customerEmail: order.customer_email || '',
+  };
 }
 
 function isCloudinaryReady() {
@@ -60,7 +93,7 @@ function isCloudinaryReady() {
 }
 
 function toCents(priceText) {
-  const normalized = String(priceText || '').replace(',', '.').trim();
+  const normalized = String(priceText ?? '').replace(',', '.').trim();
   const value = Number(normalized);
   if (!Number.isFinite(value) || value < 0) {
     return null;
@@ -68,82 +101,94 @@ function toCents(priceText) {
   return Math.round(value * 100);
 }
 
+function normalizeActive(value) {
+  return value === true || value === 1 || value === '1' || value === 'true' || value === 'on' ? 1 : 0;
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.user) {
-    setFlash(req, 'error', 'Faca login para continuar.');
-    return res.redirect('/login');
+    return sendError(res, 401, 'Faca login para continuar.');
   }
   next();
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.session.user || req.session.user.role !== 'admin') {
-    setFlash(req, 'error', 'Acesso restrito ao administrador.');
-    return res.redirect('/');
+  if (!req.session.user) {
+    return sendError(res, 401, 'Faca login para continuar.');
   }
+
+  if (req.session.user.role !== 'admin') {
+    return sendError(res, 403, 'Acesso restrito ao administrador.');
+  }
+
   next();
 }
 
-app.get('/', (req, res) => {
+app.get('/api/session', (req, res) => {
+  res.json({
+    ok: true,
+    user: serializeUser(req.session.user),
+  });
+});
+
+app.get('/api/products', (_req, res) => {
   const products = db
     .prepare(
-      `SELECT id, name, description, price_cents, stock, image_url
+      `SELECT id, name, description, price_cents, stock, image_url, active, created_at, updated_at
        FROM products
        WHERE active = 1
        ORDER BY created_at DESC`
     )
-    .all();
+    .all()
+    .map(serializeProduct);
 
-  res.render('home', { products });
+  res.json({
+    ok: true,
+    products,
+  });
 });
 
-app.get('/register', (req, res) => {
-  if (req.session.user) return res.redirect('/');
-  res.render('register');
-});
-
-app.post('/register', (req, res) => {
+app.post('/api/auth/register', (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password || password.length < 6) {
-    setFlash(req, 'error', 'Preencha os dados corretamente (senha com 6+ caracteres).');
-    return res.redirect('/register');
+    return sendError(res, 400, 'Preencha os dados corretamente (senha com 6+ caracteres).');
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.trim().toLowerCase());
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
   if (existing) {
-    setFlash(req, 'error', 'Este e-mail ja esta cadastrado.');
-    return res.redirect('/register');
+    return sendError(res, 409, 'Este e-mail ja esta cadastrado.');
   }
 
+  const normalizedName = name.trim();
   const hash = bcrypt.hashSync(password, 10);
   const result = db
     .prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')
-    .run(name.trim(), email.trim().toLowerCase(), hash, 'customer');
+    .run(normalizedName, normalizedEmail, hash, 'customer');
 
   req.session.user = {
     id: result.lastInsertRowid,
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
+    name: normalizedName,
+    email: normalizedEmail,
     role: 'customer',
   };
 
-  setFlash(req, 'success', 'Cadastro realizado com sucesso.');
-  return res.redirect('/');
+  res.status(201).json({
+    ok: true,
+    message: 'Cadastro realizado com sucesso.',
+    user: serializeUser(req.session.user),
+  });
 });
 
-app.get('/login', (req, res) => {
-  if (req.session.user) return res.redirect('/');
-  res.render('login');
-});
-
-app.post('/login', (req, res) => {
+app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get((email || '').trim().toLowerCase());
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
+
   if (!user || !bcrypt.compareSync(password || '', user.password_hash)) {
-    setFlash(req, 'error', 'Credenciais invalidas.');
-    return res.redirect('/login');
+    return sendError(res, 401, 'Credenciais invalidas.');
   }
 
   req.session.user = {
@@ -153,17 +198,23 @@ app.post('/login', (req, res) => {
     role: user.role,
   };
 
-  setFlash(req, 'success', `Bem-vindo, ${user.name}.`);
-  return res.redirect(user.role === 'admin' ? '/admin' : '/');
-});
-
-app.post('/logout', (req, res) => {
-  req.session.destroy(() => {
-    res.redirect('/');
+  res.json({
+    ok: true,
+    message: `Bem-vindo, ${user.name}.`,
+    user: serializeUser(req.session.user),
   });
 });
 
-app.get('/my-orders', requireAuth, (req, res) => {
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.json({
+      ok: true,
+      message: 'Sessao encerrada com sucesso.',
+    });
+  });
+});
+
+app.get('/api/orders/my', requireAuth, (req, res) => {
   const orders = db
     .prepare(
       `SELECT o.id, o.total_cents, o.status, o.created_at
@@ -171,29 +222,30 @@ app.get('/my-orders', requireAuth, (req, res) => {
        WHERE o.user_id = ?
        ORDER BY o.created_at DESC`
     )
-    .all(req.session.user.id);
+    .all(req.session.user.id)
+    .map(serializeOrder);
 
-  res.render('customer/orders', { orders });
+  res.json({
+    ok: true,
+    orders,
+  });
 });
 
-app.post('/orders', requireAuth, (req, res) => {
-  const productId = Number(req.body.product_id);
+app.post('/api/orders', requireAuth, (req, res) => {
+  const productId = Number(req.body.productId);
   const quantity = Number(req.body.quantity);
 
   if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity <= 0) {
-    setFlash(req, 'error', 'Pedido invalido.');
-    return res.redirect('/');
+    return sendError(res, 400, 'Pedido invalido.');
   }
 
   const product = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1').get(productId);
   if (!product) {
-    setFlash(req, 'error', 'Produto nao encontrado.');
-    return res.redirect('/');
+    return sendError(res, 404, 'Produto nao encontrado.');
   }
 
   if (product.stock < quantity) {
-    setFlash(req, 'error', 'Estoque insuficiente para este pedido.');
-    return res.redirect('/');
+    return sendError(res, 409, 'Estoque insuficiente para este pedido.');
   }
 
   const createOrder = db.transaction(() => {
@@ -211,11 +263,14 @@ app.post('/orders', requireAuth, (req, res) => {
   });
 
   createOrder();
-  setFlash(req, 'success', 'Pedido realizado com sucesso.');
-  return res.redirect('/my-orders');
+
+  res.status(201).json({
+    ok: true,
+    message: 'Pedido realizado com sucesso.',
+  });
 });
 
-app.get('/admin', requireAdmin, (req, res) => {
+app.get('/api/admin/dashboard', requireAdmin, (_req, res) => {
   const stats = {
     products: db.prepare('SELECT COUNT(*) AS count FROM products').get().count,
     customers: db.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'customer'").get().count,
@@ -223,39 +278,56 @@ app.get('/admin', requireAdmin, (req, res) => {
     revenueCents: db.prepare("SELECT COALESCE(SUM(total_cents),0) AS value FROM orders WHERE status != 'cancelado'").get().value,
   };
 
-  res.render('admin/dashboard', { stats });
+  res.json({
+    ok: true,
+    stats,
+  });
 });
 
-app.get('/admin/products', requireAdmin, (req, res) => {
+app.get('/api/admin/products', requireAdmin, (_req, res) => {
   const products = db
     .prepare(
-      `SELECT id, name, description, price_cents, stock, active, created_at
+      `SELECT id, name, description, price_cents, stock, image_url, active, created_at, updated_at
        FROM products
        ORDER BY created_at DESC`
     )
-    .all();
+    .all()
+    .map(serializeProduct);
 
-  res.render('admin/products/list', { products });
+  res.json({
+    ok: true,
+    products,
+  });
 });
 
-app.get('/admin/products/new', requireAdmin, (req, res) => {
-  res.render('admin/products/form', { product: null });
+app.get('/api/admin/products/:id', requireAdmin, (req, res) => {
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(req.params.id));
+  if (!product) {
+    return sendError(res, 404, 'Produto nao encontrado.');
+  }
+
+  res.json({
+    ok: true,
+    product: serializeProduct(product),
+  });
 });
 
-app.post('/admin/upload-image', requireAdmin, (req, res) => {
+app.post('/api/admin/upload-image', requireAdmin, (req, res) => {
   upload.single('image')(req, res, async (error) => {
     if (error) {
-      return res.status(400).json({ error: error.message || 'Falha no upload da imagem.' });
+      return sendError(res, 400, error.message || 'Falha no upload da imagem.');
     }
 
     if (!isCloudinaryReady()) {
-      return res.status(503).json({
-        error: 'Cloudinary nao configurado no ambiente. Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET.',
-      });
+      return sendError(
+        res,
+        503,
+        'Cloudinary nao configurado no ambiente. Defina CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET.'
+      );
     }
 
     if (!req.file) {
-      return res.status(400).json({ error: 'Envie uma imagem para continuar.' });
+      return sendError(res, 400, 'Envie uma imagem para continuar.');
     }
 
     try {
@@ -271,92 +343,97 @@ app.post('/admin/upload-image', requireAdmin, (req, res) => {
       });
 
       return res.json({
-        secure_url: uploadResult.secure_url,
-        public_id: uploadResult.public_id,
-        width: uploadResult.width,
-        height: uploadResult.height,
-        format: uploadResult.format,
-        bytes: uploadResult.bytes,
+        ok: true,
+        image: {
+          secureUrl: uploadResult.secure_url,
+          publicId: uploadResult.public_id,
+          width: uploadResult.width,
+          height: uploadResult.height,
+          format: uploadResult.format,
+          bytes: uploadResult.bytes,
+        },
+        message: 'Upload concluido com sucesso.',
       });
     } catch (uploadError) {
       console.error('Falha no upload para Cloudinary:', uploadError.message);
-      return res.status(500).json({ error: 'Nao foi possivel enviar a imagem agora.' });
+      return sendError(res, 500, 'Nao foi possivel enviar a imagem agora.');
     }
   });
 });
 
-app.post('/admin/products', requireAdmin, (req, res) => {
-  const { name, description, price, stock, image_url, active } = req.body;
+app.post('/api/admin/products', requireAdmin, (req, res) => {
+  const { name, description, price, stock, imageUrl, active } = req.body;
 
   const priceCents = toCents(price);
   const stockInt = Number(stock);
 
   if (!name || priceCents === null || !Number.isInteger(stockInt) || stockInt < 0) {
-    setFlash(req, 'error', 'Dados invalidos para criar produto.');
-    return res.redirect('/admin/products/new');
+    return sendError(res, 400, 'Dados invalidos para criar produto.');
   }
 
-  db.prepare(
-    `INSERT INTO products (name, description, price_cents, stock, image_url, active)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(name.trim(), description?.trim() || '', priceCents, stockInt, image_url?.trim() || '', active ? 1 : 0);
+  const result = db
+    .prepare(
+      `INSERT INTO products (name, description, price_cents, stock, image_url, active)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(name.trim(), description?.trim() || '', priceCents, stockInt, imageUrl?.trim() || '', normalizeActive(active));
 
-  setFlash(req, 'success', 'Produto criado com sucesso.');
-  return res.redirect('/admin/products');
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
+
+  res.status(201).json({
+    ok: true,
+    message: 'Produto criado com sucesso.',
+    product: serializeProduct(product),
+  });
 });
 
-app.get('/admin/products/:id/edit', requireAdmin, (req, res) => {
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(Number(req.params.id));
-
-  if (!product) {
-    setFlash(req, 'error', 'Produto nao encontrado.');
-    return res.redirect('/admin/products');
-  }
-
-  res.render('admin/products/form', { product });
-});
-
-app.post('/admin/products/:id/update', requireAdmin, (req, res) => {
+app.put('/api/admin/products/:id', requireAdmin, (req, res) => {
   const productId = Number(req.params.id);
-  const { name, description, price, stock, image_url, active } = req.body;
+  const { name, description, price, stock, imageUrl, active } = req.body;
 
   const priceCents = toCents(price);
   const stockInt = Number(stock);
 
   if (!name || priceCents === null || !Number.isInteger(stockInt) || stockInt < 0) {
-    setFlash(req, 'error', 'Dados invalidos para atualizar produto.');
-    return res.redirect(`/admin/products/${productId}/edit`);
+    return sendError(res, 400, 'Dados invalidos para atualizar produto.');
   }
 
-  const result = db.prepare(
-    `UPDATE products
-     SET name = ?, description = ?, price_cents = ?, stock = ?, image_url = ?, active = ?, updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(name.trim(), description?.trim() || '', priceCents, stockInt, image_url?.trim() || '', active ? 1 : 0, productId);
+  const result = db
+    .prepare(
+      `UPDATE products
+       SET name = ?, description = ?, price_cents = ?, stock = ?, image_url = ?, active = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .run(name.trim(), description?.trim() || '', priceCents, stockInt, imageUrl?.trim() || '', normalizeActive(active), productId);
 
   if (result.changes === 0) {
-    setFlash(req, 'error', 'Produto nao encontrado.');
-    return res.redirect('/admin/products');
+    return sendError(res, 404, 'Produto nao encontrado.');
   }
 
-  setFlash(req, 'success', 'Produto atualizado com sucesso.');
-  return res.redirect('/admin/products');
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId);
+
+  res.json({
+    ok: true,
+    message: 'Produto atualizado com sucesso.',
+    product: serializeProduct(product),
+  });
 });
 
-app.post('/admin/products/:id/delete', requireAdmin, (req, res) => {
+app.delete('/api/admin/products/:id', requireAdmin, (req, res) => {
   const productId = Number(req.params.id);
   const result = db.prepare('DELETE FROM products WHERE id = ?').run(productId);
 
   if (result.changes === 0) {
-    setFlash(req, 'error', 'Produto nao encontrado.');
-  } else {
-    setFlash(req, 'success', 'Produto removido com sucesso.');
+    return sendError(res, 404, 'Produto nao encontrado.');
   }
 
-  return res.redirect('/admin/products');
+  res.json({
+    ok: true,
+    message: 'Produto removido com sucesso.',
+  });
 });
 
-app.get('/admin/orders', requireAdmin, (req, res) => {
+app.get('/api/admin/orders', requireAdmin, (_req, res) => {
   const orders = db
     .prepare(
       `SELECT o.id, o.total_cents, o.status, o.created_at, u.name AS customer_name, u.email AS customer_email
@@ -364,38 +441,38 @@ app.get('/admin/orders', requireAdmin, (req, res) => {
        JOIN users u ON u.id = o.user_id
        ORDER BY o.created_at DESC`
     )
-    .all();
+    .all()
+    .map(serializeOrder);
 
-  res.render('admin/orders/list', { orders });
+  res.json({
+    ok: true,
+    orders,
+  });
 });
 
-app.post('/admin/orders/:id/status', requireAdmin, (req, res) => {
+app.patch('/api/admin/orders/:id/status', requireAdmin, (req, res) => {
   const orderId = Number(req.params.id);
   const nextStatus = req.body.status;
   const allowed = new Set(['novo', 'pago', 'enviado', 'cancelado']);
 
   if (!allowed.has(nextStatus)) {
-    setFlash(req, 'error', 'Status invalido.');
-    return res.redirect('/admin/orders');
+    return sendError(res, 400, 'Status invalido.');
   }
 
   const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(orderId);
   if (!order) {
-    setFlash(req, 'error', 'Pedido nao encontrado.');
-    return res.redirect('/admin/orders');
+    return sendError(res, 404, 'Pedido nao encontrado.');
   }
+
   if (order.status === 'cancelado' && nextStatus !== 'cancelado') {
-    setFlash(req, 'error', 'Pedido cancelado nao pode ser reativado.');
-    return res.redirect('/admin/orders');
+    return sendError(res, 409, 'Pedido cancelado nao pode ser reativado.');
   }
 
   const tx = db.transaction(() => {
     db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(nextStatus, orderId);
 
     if (order.status !== 'cancelado' && nextStatus === 'cancelado') {
-      const items = db
-        .prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?')
-        .all(orderId);
+      const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId);
 
       for (const item of items) {
         db.prepare("UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ?").run(
@@ -407,12 +484,19 @@ app.post('/admin/orders/:id/status', requireAdmin, (req, res) => {
   });
 
   tx();
-  setFlash(req, 'success', 'Status do pedido atualizado.');
-  return res.redirect('/admin/orders');
+
+  res.json({
+    ok: true,
+    message: 'Status do pedido atualizado.',
+  });
 });
 
-app.use((req, res) => {
-  res.status(404).render('not-found');
+app.use('/api', (_req, res) => {
+  sendError(res, 404, 'Endpoint nao encontrado.');
+});
+
+app.get('*', (_req, res) => {
+  res.sendFile(INDEX_FILE);
 });
 
 function startServer(port, retriesLeft) {
