@@ -361,6 +361,36 @@ export function StoreProvider({ children }) {
     pushNotice('success', 'Produto criado com sucesso.');
   };
 
+  const importProductsBatch = async (items) => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Acesso restrito ao administrador.');
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('Nenhum produto informado para importacao.');
+    }
+
+    const batch = writeBatch(db);
+    const timestamp = nowIso();
+
+    for (const item of items) {
+      const newRef = doc(collection(db, 'products'));
+      batch.set(newRef, {
+        name: item.name,
+        description: item.description || '',
+        priceCents: item.priceCents,
+        stock: item.stock,
+        imageUrl: item.imageUrl,
+        active: item.active,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+
+    await batch.commit();
+    pushNotice('success', `${items.length} produto(s) importado(s) com sucesso.`);
+  };
+
   const deleteProduct = async (productId) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Acesso restrito ao administrador.');
@@ -429,6 +459,7 @@ export function StoreProvider({ children }) {
     logout,
     createOrder,
     saveProduct,
+    importProductsBatch,
     deleteProduct,
     updateOrderStatus,
     clearNotice,

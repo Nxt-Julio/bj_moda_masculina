@@ -880,6 +880,26 @@ th {
   color: #97322d;
 }
 
+.admin-importer {
+  margin-top: 1.2rem;
+}
+
+.bulk-textarea {
+  min-height: 220px;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.bulk-preview {
+  margin-top: 1rem;
+}
+
+.bulk-error {
+  color: var(--err);
+  margin-top: 0.5rem;
+}
+
 .footer-grid {
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr 1fr;

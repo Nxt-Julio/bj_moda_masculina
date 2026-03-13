@@ -119,6 +119,23 @@ Fluxo recomendado:
 3. acesse o painel admin
 4. crie ou edite os produtos e salve as URLs no Firestore
 
+### Importador em lote
+
+No painel de produtos agora existe um importador em lote.
+
+Formato aceito, uma linha por produto:
+
+```text
+Nome | URL da imagem | Preco | Estoque | Descricao | Ativo
+```
+
+Exemplo:
+
+```text
+Gravata Azul | https://res.cloudinary.com/.../gravata-azul.jpg | 89,90 | 10 | Gravata social azul em cetim | sim
+Kit Executivo | https://res.cloudinary.com/.../kit-executivo.jpg | 199,90 | 5 | Kit com gravata, lenco e prendedor | sim
+```
+
 ## Vercel
 
 Configuracao recomendada:

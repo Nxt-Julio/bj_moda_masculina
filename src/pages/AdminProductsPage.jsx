@@ -1,11 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { BulkImporter } from '../components/admin/BulkImporter';
 import { ProductsTable } from '../components/admin/ProductsTable';
 import { GateCard } from '../components/shared/GateCard';
 import { useStore } from '../context/StoreContext';
 
 export function AdminProductsPage() {
   const navigate = useNavigate();
-  const { currentUser, products, deleteProduct, pushNotice } = useStore();
+  const { currentUser, products, deleteProduct, importProductsBatch, pushNotice } = useStore();
 
   if (!currentUser) {
     return (
@@ -38,6 +39,15 @@ export function AdminProductsPage() {
     }
   };
 
+  const handleImport = async (items) => {
+    try {
+      await importProductsBatch(items);
+    } catch (error) {
+      pushNotice('error', error.message);
+      throw error;
+    }
+  };
+
   return (
     <section>
       <div className="page-head page-head-inline">
@@ -55,6 +65,10 @@ export function AdminProductsPage() {
         onEdit={(productId) => navigate(`/admin/produtos/${productId}/editar`)}
         onDelete={handleDelete}
       />
+
+      <div className="admin-importer">
+        <BulkImporter onImport={handleImport} />
+      </div>
     </section>
   );
 }
