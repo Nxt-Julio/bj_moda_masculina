@@ -10,10 +10,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:cloudinary": "node scripts/sync-cloudinary-to-firestore.js"
   },
   "dependencies": {
+    "cloudinary": "^2.9.0",
+    "dotenv": "^17.3.1",
     "firebase": "^12.10.0",
+    "firebase-admin": "^13.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.30.1"

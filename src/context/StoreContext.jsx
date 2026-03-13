@@ -45,6 +45,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function normalizeProduct(productId, data) {
+  return {
+    id: productId,
+    ...data,
+    name: data.name ?? data.nome ?? '',
+    description: data.description ?? data.descricao ?? '',
+    priceCents: data.priceCents ?? Math.round(Number(data.preco || 0) * 100),
+    stock: data.stock ?? data.estoque ?? 0,
+    imageUrl: data.imageUrl ?? data.imagemUrl ?? '',
+    active: data.active ?? data.ativo ?? true,
+  };
+}
+
 async function ensureSeedProducts() {
   const snapshot = await getDocs(collection(db, 'products'));
   if (!snapshot.empty) {
@@ -130,7 +143,7 @@ export function StoreProvider({ children }) {
     const unsubscribe = onSnapshot(
       productsQuery,
       (snapshot) => {
-        setProducts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setProducts(snapshot.docs.map((item) => normalizeProduct(item.id, item.data())));
         setIsProductsReady(true);
       },
       (error) => {
@@ -339,11 +352,17 @@ export function StoreProvider({ children }) {
     const timestamp = nowIso();
     const data = {
       name: payload.name.trim(),
+      nome: payload.name.trim(),
       description: payload.description.trim(),
+      descricao: payload.description.trim(),
       priceCents,
+      preco: priceCents / 100,
       stock,
+      estoque: stock,
       imageUrl: payload.imageUrl.trim(),
+      imagemUrl: payload.imageUrl.trim(),
       active: payload.active,
+      ativo: payload.active,
       updatedAt: timestamp,
     };
 
@@ -389,6 +408,37 @@ export function StoreProvider({ children }) {
 
     await batch.commit();
     pushNotice('success', `${items.length} produto(s) importado(s) com sucesso.`);
+  };
+
+  const syncCloudinaryProducts = async () => {
+    if (!currentUser || currentUser.role !== 'admin') {
+      throw new Error('Acesso restrito ao administrador.');
+    }
+
+    if (!auth.currentUser) {
+      throw new Error('Sessao expirada. Faca login novamente.');
+    }
+
+    const idToken = await auth.currentUser.getIdToken();
+    const response = await fetch('/api/admin/sync-cloudinary', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || 'Falha ao sincronizar imagens do Cloudinary.');
+    }
+
+    pushNotice(
+      'success',
+      `Sincronizacao concluida: ${payload.created} criado(s), ${payload.skipped} ja existente(s), ${payload.errors} erro(s).`
+    );
+
+    return payload;
   };
 
   const deleteProduct = async (productId) => {
@@ -460,6 +510,7 @@ export function StoreProvider({ children }) {
     createOrder,
     saveProduct,
     importProductsBatch,
+    syncCloudinaryProducts,
     deleteProduct,
     updateOrderStatus,
     clearNotice,

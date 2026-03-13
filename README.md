@@ -7,6 +7,7 @@ Projeto refatorado para deploy estatico na Vercel com:
 - Cloud Firestore
 - painel administrativo persistente
 - cadastro de produtos com URL de imagem do Cloudinary
+- sincronizacao em lote Cloudinary -> Firestore via Node.js
 
 ## Stack atual
 
@@ -57,6 +58,8 @@ dist/
 +-- .env.example
 +-- index.html
 +-- package.json
++-- scripts/
+|   +-- sync-cloudinary-to-firestore.js
 +-- vite.config.js
 +-- vercel.json
 ```
@@ -73,6 +76,12 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_ADMIN_EMAILS=bjmodasocial@gmail.com,admin@bjmodas.com
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=
 ```
 
 Observacoes:
@@ -118,6 +127,65 @@ Fluxo recomendado:
 2. copie a `secure_url` de cada produto
 3. acesse o painel admin
 4. crie ou edite os produtos e salve as URLs no Firestore
+
+### Sincronizacao automatica Cloudinary -> Firestore
+
+Foi adicionada a rotina:
+
+```bash
+npm run sync:cloudinary
+```
+
+Ela deve ser executada:
+
+- no seu computador
+- em uma VPS
+- ou em CI/CD
+
+Nao deve ser executada no navegador nem no front-end Vite, porque usa:
+
+- Cloudinary Admin API
+- Firebase Admin SDK
+- credenciais sensiveis via variavel de ambiente
+
+O que a rotina faz:
+
+1. le todas as imagens do Cloudinary via Admin API
+2. pagina com `next_cursor` ate buscar tudo
+3. verifica duplicidade por `cloudinaryPublicId`
+4. cria documentos na collection `products`
+5. grava os campos do painel e os campos pedidos para rastreio da origem
+
+Campos gravados em cada produto importado:
+
+```json
+{
+  "nome": "",
+  "preco": 0,
+  "estoque": 0,
+  "imagemUrl": "URL_DA_IMAGEM",
+  "cloudinaryPublicId": "PUBLIC_ID_DA_IMAGEM",
+  "formato": "FORMATO_DA_IMAGEM",
+  "createdAt": "timestamp",
+  "updatedAt": "timestamp",
+  "origem": "cloudinary",
+  "ativo": true
+}
+```
+
+Campos extras para compatibilidade com o painel atual:
+
+```json
+{
+  "name": "",
+  "priceCents": 0,
+  "stock": 0,
+  "imageUrl": "URL_DA_IMAGEM",
+  "active": true,
+  "description": "",
+  "descricao": ""
+}
+```
 
 ### Importador em lote
 

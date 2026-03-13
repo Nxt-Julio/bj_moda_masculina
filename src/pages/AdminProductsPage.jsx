@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { BulkImporter } from '../components/admin/BulkImporter';
+import { CloudinarySyncPanel } from '../components/admin/CloudinarySyncPanel';
 import { ProductsTable } from '../components/admin/ProductsTable';
 import { GateCard } from '../components/shared/GateCard';
 import { useStore } from '../context/StoreContext';
 
 export function AdminProductsPage() {
   const navigate = useNavigate();
-  const { currentUser, products, deleteProduct, importProductsBatch, pushNotice } = useStore();
+  const { currentUser, products, deleteProduct, importProductsBatch, syncCloudinaryProducts, pushNotice } = useStore();
 
   if (!currentUser) {
     return (
@@ -48,12 +49,21 @@ export function AdminProductsPage() {
     }
   };
 
+  const handleCloudinarySync = async () => {
+    try {
+      return await syncCloudinaryProducts();
+    } catch (error) {
+      pushNotice('error', error.message);
+      throw error;
+    }
+  };
+
   return (
     <section>
       <div className="page-head page-head-inline">
         <div>
           <h1>Produtos</h1>
-          <p className="small">Catalogo gerenciado localmente para deploy serverless sem backend nativo.</p>
+          <p className="small">Gerencie o catalogo, importe lotes manuais e sincronize imagens direto do Cloudinary.</p>
         </div>
         <button className="btn" type="button" onClick={() => navigate('/admin/produtos/novo')}>
           Novo produto
@@ -65,6 +75,10 @@ export function AdminProductsPage() {
         onEdit={(productId) => navigate(`/admin/produtos/${productId}/editar`)}
         onDelete={handleDelete}
       />
+
+      <div className="admin-importer">
+        <CloudinarySyncPanel onSync={handleCloudinarySync} />
+      </div>
 
       <div className="admin-importer">
         <BulkImporter onImport={handleImport} />
