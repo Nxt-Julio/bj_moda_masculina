@@ -4,7 +4,7 @@ import { useStore } from '../context/StoreContext';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { currentUser, login, pushNotice } = useStore();
+  const { currentUser, login, loginWithGoogle, pushNotice } = useStore();
   const [form, setForm] = useState({ email: '', password: '' });
 
   if (currentUser) {
@@ -30,10 +30,29 @@ export function LoginPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const user = await loginWithGoogle();
+      navigate(user.role === 'admin' ? '/admin' : '/');
+    } catch (error) {
+      pushNotice('error', error.message);
+    }
+  };
+
   return (
     <section className="auth-card">
       <h1>Login</h1>
-      <p className="small">Use uma conta criada no Firebase Authentication. O e-mail configurado como admin ganha acesso ao painel.</p>
+      <p className="small">Voce pode entrar com Google ou usar Email/Password se esse metodo estiver habilitado no Firebase Authentication.</p>
+
+      <div className="auth-actions">
+        <button className="btn secondary" type="button" onClick={handleGoogleLogin}>
+          Entrar com Google
+        </button>
+      </div>
+
+      <div className="auth-divider">
+        <span>ou</span>
+      </div>
 
       <form onSubmit={handleSubmit}>
         <label htmlFor="login-email">E-mail</label>

@@ -605,6 +605,39 @@ main {
   max-width: 720px;
 }
 
+.auth-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.auth-divider {
+  position: relative;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.auth-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e2d7c5;
+}
+
+.auth-divider span {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.7rem;
+  background: #fff;
+  color: #7b6650;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));

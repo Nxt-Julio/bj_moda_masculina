@@ -2,9 +2,11 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -27,6 +29,7 @@ import { initialStore } from '../data/initialStore';
 import { parsePriceToCents } from '../utils/formatters';
 
 const StoreContext = createContext(null);
+const googleProvider = new GoogleAuthProvider();
 const adminEmails = new Set(
   String(import.meta.env.VITE_ADMIN_EMAILS || 'bjmodasocial@gmail.com,admin@bjmodas.com')
     .split(',')
@@ -215,6 +218,19 @@ export function StoreProvider({ children }) {
     };
   };
 
+  const loginWithGoogle = async () => {
+    const result = await signInWithPopup(auth, googleProvider);
+    const profile = await ensureUserProfile(result.user);
+
+    pushNotice('success', `Bem-vindo, ${profile.name || result.user.displayName || 'usuario'}.`);
+    return {
+      id: result.user.uid,
+      name: profile.name || result.user.displayName || 'Usuario',
+      email: result.user.email || profile.email || '',
+      role: profile.role || 'customer',
+    };
+  };
+
   const register = async ({ name, email, password }) => {
     if (!name || !email || !password || password.length < 6) {
       throw new Error('Preencha os dados corretamente (senha com 6+ caracteres).');
@@ -391,6 +407,7 @@ export function StoreProvider({ children }) {
     adminStats,
     isBootstrapping,
     login,
+    loginWithGoogle,
     register,
     logout,
     createOrder,

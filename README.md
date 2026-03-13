@@ -79,6 +79,8 @@ Observacoes:
 
 - o projeto ja possui fallback para a configuracao Firebase enviada na conversa
 - `VITE_ADMIN_EMAILS` define quais e-mails devem receber papel `admin` ao criar o perfil
+- habilite `Authentication > Sign-in method > Google`
+- se quiser usar login tradicional, habilite tambem `Email/Password`
 
 ## Collections esperadas no Firestore
 
