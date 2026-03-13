@@ -8,9 +8,9 @@ function ProductCard({ product }) {
   const [quantity, setQuantity] = useState(1);
   const { currentUser, createOrder, pushNotice } = useStore();
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     try {
-      createOrder(product.id, quantity);
+      await createOrder(product.id, quantity);
     } catch (error) {
       pushNotice('error', error.message);
     }

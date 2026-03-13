@@ -1,200 +1,297 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+} from 'firebase/auth';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  runTransaction,
+  setDoc,
+  where,
+  writeBatch,
+} from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import { initialStore } from '../data/initialStore';
 import { parsePriceToCents } from '../utils/formatters';
 
-const STORE_KEY = 'bj-vite-store';
-const SESSION_KEY = 'bj-vite-session';
 const StoreContext = createContext(null);
-
-function readStorage(key, fallbackValue) {
-  try {
-    const rawValue = window.localStorage.getItem(key);
-    return rawValue ? JSON.parse(rawValue) : fallbackValue;
-  } catch (_error) {
-    return fallbackValue;
-  }
-}
+const adminEmails = new Set(
+  String(import.meta.env.VITE_ADMIN_EMAILS || 'bjmodasocial@gmail.com,admin@bjmodas.com')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 function nowIso() {
   return new Date().toISOString();
 }
 
+async function ensureSeedProducts() {
+  const snapshot = await getDocs(collection(db, 'products'));
+  if (!snapshot.empty) {
+    return;
+  }
+
+  const batch = writeBatch(db);
+
+  for (const product of initialStore.products) {
+    batch.set(doc(db, 'products', String(product.id)), product);
+  }
+
+  await batch.commit();
+}
+
+async function ensureUserProfile(firebaseUser, fallbackName = '') {
+  const userRef = doc(db, 'users', firebaseUser.uid);
+  const existingSnapshot = await getDoc(userRef);
+
+  if (existingSnapshot.exists()) {
+    return { id: existingSnapshot.id, ...existingSnapshot.data() };
+  }
+
+  const profile = {
+    name: firebaseUser.displayName || fallbackName || 'Usuario',
+    email: firebaseUser.email || '',
+    role: adminEmails.has((firebaseUser.email || '').toLowerCase()) ? 'admin' : 'customer',
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+
+  await setDoc(userRef, profile);
+  return { id: firebaseUser.uid, ...profile };
+}
+
 export function StoreProvider({ children }) {
-  const [store, setStore] = useState(() => readStorage(STORE_KEY, initialStore));
-  const [sessionUserId, setSessionUserId] = useState(() => readStorage(SESSION_KEY, null));
   const [notice, setNotice] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isProductsReady, setIsProductsReady] = useState(false);
 
   useEffect(() => {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify(store));
-  }, [store]);
+    ensureSeedProducts().catch((error) => {
+      setNotice({ type: 'error', text: error.message || 'Nao foi possivel preparar os produtos iniciais.' });
+    });
+  }, []);
 
   useEffect(() => {
-    if (sessionUserId === null) {
-      window.localStorage.removeItem(SESSION_KEY);
-      return;
+    setPersistence(auth, browserLocalPersistence).catch(() => {
+      setNotice({ type: 'error', text: 'Nao foi possivel configurar a persistencia da sessao.' });
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      try {
+        if (!firebaseUser) {
+          setCurrentUser(null);
+          return;
+        }
+
+        const profile = await ensureUserProfile(firebaseUser);
+        setCurrentUser({
+          id: firebaseUser.uid,
+          name: profile.name || firebaseUser.displayName || 'Usuario',
+          email: firebaseUser.email || profile.email || '',
+          role: profile.role || 'customer',
+        });
+      } catch (error) {
+        setNotice({ type: 'error', text: error.message || 'Falha ao carregar o perfil do usuario.' });
+      } finally {
+        setIsBootstrapping(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const productsQuery = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      productsQuery,
+      (snapshot) => {
+        setProducts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        setIsProductsReady(true);
+      },
+      (error) => {
+        setNotice({ type: 'error', text: error.message || 'Falha ao carregar os produtos.' });
+        setIsProductsReady(true);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setOrders([]);
+      setUsers([]);
+      if (isProductsReady) {
+        setIsBootstrapping(false);
+      }
+      return undefined;
     }
 
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUserId));
-  }, [sessionUserId]);
+    const ordersQuery =
+      currentUser.role === 'admin'
+        ? query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
+        : query(collection(db, 'orders'), where('userId', '==', currentUser.id), orderBy('createdAt', 'desc'));
 
-  const currentUser = useMemo(
-    () => store.users.find((user) => user.id === sessionUserId) || null,
-    [store.users, sessionUserId]
-  );
+    const unsubscribeOrders = onSnapshot(
+      ordersQuery,
+      (snapshot) => {
+        setOrders(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+      },
+      (error) => {
+        setNotice({ type: 'error', text: error.message || 'Falha ao carregar os pedidos.' });
+      }
+    );
 
-  const activeProducts = useMemo(
-    () => store.products.filter((product) => product.active).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    [store.products]
-  );
+    let unsubscribeUsers = () => {};
 
-  const customerOrders = useMemo(() => {
-    if (!currentUser) return [];
+    if (currentUser.role === 'admin') {
+      const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+      unsubscribeUsers = onSnapshot(
+        usersQuery,
+        (snapshot) => {
+          setUsers(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+        },
+        (error) => {
+          setNotice({ type: 'error', text: error.message || 'Falha ao carregar os usuarios.' });
+        }
+      );
+    }
 
-    return store.orders
-      .filter((order) => order.userId === currentUser.id)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  }, [currentUser, store.orders]);
+    setIsBootstrapping(false);
 
-  const adminOrders = useMemo(
-    () => [...store.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    [store.orders]
-  );
+    return () => {
+      unsubscribeOrders();
+      unsubscribeUsers();
+    };
+  }, [currentUser, isProductsReady]);
+
+  const activeProducts = useMemo(() => products.filter((product) => product.active), [products]);
+  const customerOrders = useMemo(() => orders, [orders]);
+  const adminOrders = useMemo(() => orders, [orders]);
 
   const adminStats = useMemo(() => {
-    const revenueCents = store.orders
-      .filter((order) => order.status !== 'cancelado')
-      .reduce((total, order) => total + order.totalCents, 0);
+    const revenueCents = orders.filter((order) => order.status !== 'cancelado').reduce((sum, order) => sum + order.totalCents, 0);
 
     return {
-      products: store.products.length,
-      customers: store.users.filter((user) => user.role === 'customer').length,
-      orders: store.orders.length,
+      products: products.length,
+      customers: users.filter((user) => user.role === 'customer').length,
+      orders: orders.length,
       revenueCents,
     };
-  }, [store.orders, store.products.length, store.users]);
+  }, [orders, products.length, users]);
 
   const clearNotice = () => setNotice(null);
+  const pushNotice = (type, text) => setNotice({ type, text });
 
-  const pushNotice = (type, text) => {
-    setNotice({ type, text });
-  };
-
-  const login = ({ email, password }) => {
+  const login = async ({ email, password }) => {
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const user = store.users.find((candidate) => candidate.email === normalizedEmail);
+    const result = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+    const profile = await ensureUserProfile(result.user);
 
-    if (!user || user.password !== password) {
-      throw new Error('Credenciais invalidas.');
-    }
-
-    setSessionUserId(user.id);
-    pushNotice('success', `Bem-vindo, ${user.name}.`);
-    return user;
+    pushNotice('success', `Bem-vindo, ${profile.name || result.user.displayName || 'usuario'}.`);
+    return {
+      id: result.user.uid,
+      name: profile.name || result.user.displayName || 'Usuario',
+      email: result.user.email || normalizedEmail,
+      role: profile.role || 'customer',
+    };
   };
 
-  const register = ({ name, email, password }) => {
+  const register = async ({ name, email, password }) => {
     if (!name || !email || !password || password.length < 6) {
       throw new Error('Preencha os dados corretamente (senha com 6+ caracteres).');
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const emailExists = store.users.some((user) => user.email === normalizedEmail);
+    const result = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+    await updateProfile(result.user, { displayName: name.trim() });
+    await ensureUserProfile(result.user, name.trim());
 
-    if (emailExists) {
-      throw new Error('Este e-mail ja esta cadastrado.');
-    }
-
-    const newUser = {
-      id: store.nextIds.user,
-      name: name.trim(),
-      email: normalizedEmail,
-      password,
-      role: 'customer',
-    };
-
-    setStore((currentStore) => ({
-      ...currentStore,
-      users: [...currentStore.users, newUser],
-      nextIds: {
-        ...currentStore.nextIds,
-        user: currentStore.nextIds.user + 1,
-      },
-    }));
-    setSessionUserId(newUser.id);
     pushNotice('success', 'Cadastro realizado com sucesso.');
-    return newUser;
+    return result.user;
   };
 
-  const logout = () => {
-    setSessionUserId(null);
+  const logout = async () => {
+    await signOut(auth);
     pushNotice('success', 'Sessao encerrada com sucesso.');
   };
 
-  const createOrder = (productId, quantity) => {
+  const createOrder = async (productId, quantity) => {
     if (!currentUser || currentUser.role !== 'customer') {
       throw new Error('Faca login como cliente para concluir a compra.');
     }
 
-    const product = store.products.find((item) => item.id === productId && item.active);
     const normalizedQuantity = Number(quantity);
-
-    if (!product) {
-      throw new Error('Produto nao encontrado.');
-    }
-
     if (!Number.isInteger(normalizedQuantity) || normalizedQuantity <= 0) {
       throw new Error('Quantidade invalida.');
     }
 
-    if (product.stock < normalizedQuantity) {
-      throw new Error('Estoque insuficiente para este pedido.');
-    }
+    await runTransaction(db, async (transaction) => {
+      const productRef = doc(db, 'products', String(productId));
+      const productSnapshot = await transaction.get(productRef);
 
-    const createdAt = nowIso();
-    const totalCents = product.priceCents * normalizedQuantity;
-    const nextOrderId = store.nextIds.order;
+      if (!productSnapshot.exists()) {
+        throw new Error('Produto nao encontrado.');
+      }
 
-    const nextOrder = {
-      id: nextOrderId,
-      userId: currentUser.id,
-      customerName: currentUser.name,
-      customerEmail: currentUser.email,
-      totalCents,
-      status: 'novo',
-      createdAt,
-      items: [
-        {
-          productId: product.id,
-          productName: product.name,
-          quantity: normalizedQuantity,
-          unitPriceCents: product.priceCents,
-        },
-      ],
-    };
+      const product = productSnapshot.data();
 
-    setStore((currentStore) => ({
-      ...currentStore,
-      products: currentStore.products.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              stock: item.stock - normalizedQuantity,
-              updatedAt: createdAt,
-            }
-          : item
-      ),
-      orders: [...currentStore.orders, nextOrder],
-      nextIds: {
-        ...currentStore.nextIds,
-        order: currentStore.nextIds.order + 1,
-      },
-    }));
+      if (!product.active) {
+        throw new Error('Produto indisponivel.');
+      }
+
+      if (product.stock < normalizedQuantity) {
+        throw new Error('Estoque insuficiente para este pedido.');
+      }
+
+      const createdAt = nowIso();
+      const orderRef = doc(collection(db, 'orders'));
+
+      transaction.update(productRef, {
+        stock: product.stock - normalizedQuantity,
+        updatedAt: createdAt,
+      });
+
+      transaction.set(orderRef, {
+        userId: currentUser.id,
+        customerName: currentUser.name,
+        customerEmail: currentUser.email,
+        totalCents: product.priceCents * normalizedQuantity,
+        status: 'novo',
+        createdAt,
+        items: [
+          {
+            productId: String(productId),
+            productName: product.name,
+            quantity: normalizedQuantity,
+            unitPriceCents: product.priceCents,
+          },
+        ],
+      });
+    });
 
     pushNotice('success', 'Pedido realizado com sucesso.');
-    return nextOrder;
   };
 
-  const saveProduct = (payload, productId = null) => {
+  const saveProduct = async (payload, productId = null) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Acesso restrito ao administrador.');
     }
@@ -207,74 +304,40 @@ export function StoreProvider({ children }) {
     }
 
     const timestamp = nowIso();
-
-    if (productId) {
-      let found = false;
-
-      setStore((currentStore) => ({
-        ...currentStore,
-        products: currentStore.products.map((product) => {
-          if (product.id !== productId) return product;
-          found = true;
-          return {
-            ...product,
-            name: payload.name.trim(),
-            description: payload.description.trim(),
-            priceCents,
-            stock,
-            imageUrl: payload.imageUrl.trim(),
-            active: payload.active,
-            updatedAt: timestamp,
-          };
-        }),
-      }));
-
-      if (!found) {
-        throw new Error('Produto nao encontrado.');
-      }
-
-      pushNotice('success', 'Produto atualizado com sucesso.');
-      return;
-    }
-
-    const newProduct = {
-      id: store.nextIds.product,
+    const data = {
       name: payload.name.trim(),
       description: payload.description.trim(),
       priceCents,
       stock,
       imageUrl: payload.imageUrl.trim(),
       active: payload.active,
-      createdAt: timestamp,
       updatedAt: timestamp,
     };
 
-    setStore((currentStore) => ({
-      ...currentStore,
-      products: [newProduct, ...currentStore.products],
-      nextIds: {
-        ...currentStore.nextIds,
-        product: currentStore.nextIds.product + 1,
-      },
-    }));
+    if (productId) {
+      await setDoc(doc(db, 'products', String(productId)), data, { merge: true });
+      pushNotice('success', 'Produto atualizado com sucesso.');
+      return;
+    }
 
+    const newRef = doc(collection(db, 'products'));
+    await setDoc(newRef, {
+      ...data,
+      createdAt: timestamp,
+    });
     pushNotice('success', 'Produto criado com sucesso.');
   };
 
-  const deleteProduct = (productId) => {
+  const deleteProduct = async (productId) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Acesso restrito ao administrador.');
     }
 
-    setStore((currentStore) => ({
-      ...currentStore,
-      products: currentStore.products.filter((product) => product.id !== productId),
-    }));
-
+    await deleteDoc(doc(db, 'products', String(productId)));
     pushNotice('success', 'Produto removido com sucesso.');
   };
 
-  const updateOrderStatus = (orderId, nextStatus) => {
+  const updateOrderStatus = async (orderId, nextStatus) => {
     if (!currentUser || currentUser.role !== 'admin') {
       throw new Error('Acesso restrito ao administrador.');
     }
@@ -284,56 +347,49 @@ export function StoreProvider({ children }) {
       throw new Error('Status invalido.');
     }
 
-    const order = store.orders.find((item) => item.id === orderId);
-    if (!order) {
-      throw new Error('Pedido nao encontrado.');
-    }
+    await runTransaction(db, async (transaction) => {
+      const orderRef = doc(db, 'orders', String(orderId));
+      const orderSnapshot = await transaction.get(orderRef);
 
-    if (order.status === 'cancelado' && nextStatus !== 'cancelado') {
-      throw new Error('Pedido cancelado nao pode ser reativado.');
-    }
+      if (!orderSnapshot.exists()) {
+        throw new Error('Pedido nao encontrado.');
+      }
 
-    const timestamp = nowIso();
+      const order = orderSnapshot.data();
+      if (order.status === 'cancelado' && nextStatus !== 'cancelado') {
+        throw new Error('Pedido cancelado nao pode ser reativado.');
+      }
 
-    setStore((currentStore) => {
-      const shouldRestoreStock = order.status !== 'cancelado' && nextStatus === 'cancelado';
+      transaction.update(orderRef, { status: nextStatus });
 
-      return {
-        ...currentStore,
-        orders: currentStore.orders.map((item) =>
-          item.id === orderId
-            ? {
-                ...item,
-                status: nextStatus,
-              }
-            : item
-        ),
-        products: shouldRestoreStock
-          ? currentStore.products.map((product) => {
-              const orderItem = order.items.find((item) => item.productId === product.id);
-              if (!orderItem) return product;
+      if (order.status !== 'cancelado' && nextStatus === 'cancelado') {
+        for (const item of order.items || []) {
+          const productRef = doc(db, 'products', String(item.productId));
+          const productSnapshot = await transaction.get(productRef);
 
-              return {
-                ...product,
-                stock: product.stock + orderItem.quantity,
-                updatedAt: timestamp,
-              };
-            })
-          : currentStore.products,
-      };
+          if (!productSnapshot.exists()) continue;
+
+          const product = productSnapshot.data();
+          transaction.update(productRef, {
+            stock: product.stock + item.quantity,
+            updatedAt: nowIso(),
+          });
+        }
+      }
     });
 
     pushNotice('success', 'Status do pedido atualizado.');
   };
 
   const value = {
-    currentUser,
     notice,
+    currentUser,
+    products,
     activeProducts,
-    products: store.products,
     customerOrders,
     adminOrders,
     adminStats,
+    isBootstrapping,
     login,
     register,
     logout,

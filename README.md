@@ -1,25 +1,21 @@
-# BJ Moda Masculina - React + Vite
+# BJ Moda Masculina - React, Vite e Firebase
 
-Refatoracao do projeto BJ para uma arquitetura moderna com React e Vite, focada em:
+Projeto refatorado para deploy estatico na Vercel com:
 
-- build leve
-- deploy estatico na Vercel
-- compatibilidade com Node 18+
-- eliminacao de dependencias nativas problematicas no build
+- React + Vite
+- Firebase Authentication
+- Cloud Firestore
+- painel administrativo persistente
+- cadastro de produtos com URL de imagem do Cloudinary
 
-## O que mudou
+## Stack atual
 
-- migracao completa para `React + Vite`
-- estrutura em `src/`, `src/components/`, `src/pages/`, `src/assets/`
-- roteamento client-side com `react-router-dom`
-- estado e persistencia local com `localStorage`
-- remocao de `express`, `better-sqlite3`, `multer`, `cloudinary`, `bcryptjs` e outras dependencias do build antigo
-- configuracao pronta para SPA na Vercel com `vercel.json`
-
-## Requisitos
-
-- Node.js 18 ou superior
-- npm ou yarn
+- frontend: React 18
+- bundler: Vite 5
+- rotas: react-router-dom
+- autenticacao: Firebase Auth
+- banco: Cloud Firestore
+- deploy: Vercel
 
 ## Comandos
 
@@ -29,7 +25,7 @@ npm run dev
 npm run build
 ```
 
-O build gera a pasta:
+O build gera:
 
 ```bash
 dist/
@@ -43,7 +39,6 @@ dist/
 |   +-- images/
 +-- src/
 |   +-- assets/
-|   |   +-- bj-seal.svg
 |   +-- components/
 |   |   +-- admin/
 |   |   +-- home/
@@ -52,77 +47,107 @@ dist/
 |   +-- context/
 |   |   +-- StoreContext.jsx
 |   +-- data/
-|   |   +-- initialStore.js
-|   |   +-- siteContent.js
+|   +-- lib/
+|   |   +-- firebase.js
 |   +-- pages/
-|   |   +-- AdminDashboardPage.jsx
-|   |   +-- AdminOrdersPage.jsx
-|   |   +-- AdminProductFormPage.jsx
-|   |   +-- AdminProductsPage.jsx
-|   |   +-- HomePage.jsx
-|   |   +-- LoginPage.jsx
-|   |   +-- NotFoundPage.jsx
-|   |   +-- OrdersPage.jsx
-|   |   +-- RegisterPage.jsx
 |   +-- utils/
-|   |   +-- formatters.js
 |   +-- App.jsx
 |   +-- main.jsx
 |   +-- styles.css
++-- .env.example
 +-- index.html
 +-- package.json
 +-- vite.config.js
 +-- vercel.json
 ```
 
-## Observacao sobre dados
+## Firebase
 
-Para garantir deploy estatico e compatibilidade total com a Vercel, esta versao roda sem backend Node.
+Crie um arquivo `.env` local com base em `.env.example` ou configure as mesmas variaveis na Vercel:
 
-Isso significa que:
-
-- login, cadastro, produtos e pedidos funcionam em modo front-end
-- os dados ficam persistidos no `localStorage`
-- a conta admin demo e:
-  - e-mail: `admin@bjmodas.com`
-  - senha: `admin123`
-
-## Deploy na Vercel
-
-1. Suba o projeto para um repositorio Git.
-2. Importe o repositorio na Vercel.
-3. Configure:
-
-```text
-Framework Preset: Vite
-Build Command: npm run build
-Output Directory: dist
-Install Command: npm install
+```bash
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_ADMIN_EMAILS=bjmodasocial@gmail.com,admin@bjmodas.com
 ```
 
-4. Faca o deploy.
+Observacoes:
 
-O arquivo `vercel.json` ja inclui rewrite para SPA:
+- o projeto ja possui fallback para a configuracao Firebase enviada na conversa
+- `VITE_ADMIN_EMAILS` define quais e-mails devem receber papel `admin` ao criar o perfil
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
-}
-```
+## Collections esperadas no Firestore
 
-## Observacao tecnica importante
+- `users`
+  - `name`
+  - `email`
+  - `role`
+  - `createdAt`
+  - `updatedAt`
+- `products`
+  - `name`
+  - `description`
+  - `priceCents`
+  - `stock`
+  - `imageUrl`
+  - `active`
+  - `createdAt`
+  - `updatedAt`
+- `orders`
+  - `userId`
+  - `customerName`
+  - `customerEmail`
+  - `totalCents`
+  - `status`
+  - `createdAt`
+  - `items`
 
-O aviso antigo:
+## Como usar com Cloudinary
 
-```text
-npm warn deprecated prebuild-install@7.1.3
-```
+As fotos podem ser usadas no painel admin colando a `secure_url` de cada imagem do Cloudinary no campo de URL do produto.
 
-vinha do fluxo anterior baseado em dependencias nativas, principalmente `better-sqlite3`.
+Fluxo recomendado:
 
-Nesta refatoracao, esse caminho foi removido do build. Hoje o projeto compila com `vite build` e gera `dist` corretamente para deploy.
+1. envie as fotos ao Cloudinary
+2. copie a `secure_url` de cada produto
+3. acesse o painel admin
+4. crie ou edite os produtos e salve as URLs no Firestore
+
+## Vercel
+
+Configuracao recomendada:
+
+- Framework Preset: `Vite`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+O arquivo `vercel.json` ja define:
+
+- `outputDirectory: dist`
+- rewrite SPA para `index.html`
+
+## Importante sobre administracao
+
+Para o admin funcionar no Firebase:
+
+1. registre ou crie um usuario com o e-mail definido em `VITE_ADMIN_EMAILS`
+2. faca login com esse usuario
+3. o perfil sera salvo com role `admin`
+
+## Validacao local
+
+Fluxos validados nesta refatoracao:
+
+- `npm install`
+- `npm run dev`
+- `npm run build`
+- geracao correta de `dist`
+
+## Proximo passo sugerido
+
+Se quiser, na proxima etapa eu posso fazer a importacao automatica dos produtos a partir das URLs do Cloudinary para popular o Firestore em lote.

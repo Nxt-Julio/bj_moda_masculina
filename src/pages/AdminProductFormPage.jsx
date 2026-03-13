@@ -8,7 +8,7 @@ export function AdminProductFormPage() {
   const navigate = useNavigate();
   const params = useParams();
   const { currentUser, products, saveProduct, pushNotice } = useStore();
-  const productId = params.productId ? Number(params.productId) : null;
+  const productId = params.productId || null;
 
   const initialProduct = useMemo(
     () => (productId ? products.find((product) => product.id === productId) || null : null),
@@ -48,9 +48,9 @@ export function AdminProductFormPage() {
     );
   }
 
-  const handleSubmit = (form) => {
+  const handleSubmit = async (form) => {
     try {
-      saveProduct(form, productId);
+      await saveProduct(form, productId);
       navigate('/admin/produtos');
     } catch (error) {
       pushNotice('error', error.message);

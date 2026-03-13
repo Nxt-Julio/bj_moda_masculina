@@ -19,11 +19,11 @@ export function RegisterPage() {
     );
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
-      register(form);
+      await register(form);
       navigate('/');
     } catch (error) {
       pushNotice('error', error.message);

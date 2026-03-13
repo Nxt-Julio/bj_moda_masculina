@@ -49,7 +49,7 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
     <section className="panel">
       <div className="page-head">
         <h1>{initialProduct ? 'Editar produto' : 'Novo produto'}</h1>
-        <p className="small">Cadastro leve em React/Vite com preview local de imagem.</p>
+        <p className="small">Cole a secure_url do Cloudinary ou use uma imagem local apenas para preview rapido.</p>
       </div>
 
       <form

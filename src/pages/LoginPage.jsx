@@ -19,11 +19,11 @@ export function LoginPage() {
     );
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     try {
-      const user = login(form);
+      const user = await login(form);
       navigate(user.role === 'admin' ? '/admin' : '/');
     } catch (error) {
       pushNotice('error', error.message);
@@ -33,7 +33,7 @@ export function LoginPage() {
   return (
     <section className="auth-card">
       <h1>Login</h1>
-      <p className="small">Use `admin@bjmodas.com / admin123` para a area administrativa.</p>
+      <p className="small">Use uma conta criada no Firebase Authentication. O e-mail configurado como admin ganha acesso ao painel.</p>
 
       <form onSubmit={handleSubmit}>
         <label htmlFor="login-email">E-mail</label>

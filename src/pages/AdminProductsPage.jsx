@@ -29,10 +29,10 @@ export function AdminProductsPage() {
     );
   }
 
-  const handleDelete = (productId) => {
+  const handleDelete = async (productId) => {
     if (!window.confirm('Excluir produto?')) return;
     try {
-      deleteProduct(productId);
+      await deleteProduct(productId);
     } catch (error) {
       pushNotice('error', error.message);
     }

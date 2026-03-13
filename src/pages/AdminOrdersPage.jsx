@@ -29,9 +29,9 @@ export function AdminOrdersPage() {
     );
   }
 
-  const handleChangeStatus = (orderId, status) => {
+  const handleChangeStatus = async (orderId, status) => {
     try {
-      updateOrderStatus(orderId, status);
+      await updateOrderStatus(orderId, status);
     } catch (error) {
       pushNotice('error', error.message);
     }

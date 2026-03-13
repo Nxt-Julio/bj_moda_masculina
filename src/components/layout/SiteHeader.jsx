@@ -76,10 +76,14 @@ export function SiteHeader() {
                     Portal ADM
                   </NavLink>
                 ) : null}
-                <button className="action-link" type="button" onClick={() => {
-                  logout();
-                  navigate('/');
-                }}>
+                <button
+                  className="action-link"
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                    navigate('/');
+                  }}
+                >
                   Sair
                 </button>
               </>
