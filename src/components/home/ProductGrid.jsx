@@ -20,6 +20,10 @@ function ProductCard({ product }) {
     <article className="product-card">
       <img src={product.imageUrl || fallbackProductImage} alt={product.name} />
       <div className="product-content">
+        <div className="product-meta">
+          {product.groupName ? <span className="product-chip">{product.groupName}</span> : null}
+          {product.subgroupName ? <span className="product-chip">{product.subgroupName}</span> : null}
+        </div>
         <h3>{product.name}</h3>
         <p className="small">{product.description || 'Acabamento refinado para ocasioes especiais.'}</p>
         <p className="price">{formatCurrency(product.priceCents)}</p>
@@ -52,12 +56,17 @@ function ProductCard({ product }) {
   );
 }
 
-export function ProductGrid({ products }) {
+export function ProductGrid({ products, kicker = 'Curadoria Premium', title = 'Produtos em Destaque', description = '', isLoading = false }) {
   return (
-    <section className="section-block" id="produtos">
-      <SectionHeader kicker="Curadoria Premium" title="Produtos em Destaque" />
+    <div>
+      {title ? <SectionHeader kicker={kicker} title={title} /> : null}
+      {description ? <p className="small">{description}</p> : null}
 
-      {products.length === 0 ? (
+      {isLoading ? (
+        <div className="card empty-card">
+          <p>Carregando produtos...</p>
+        </div>
+      ) : products.length === 0 ? (
         <div className="card empty-card">
           <p>Nenhum produto disponivel no momento.</p>
         </div>
@@ -68,6 +77,6 @@ export function ProductGrid({ products }) {
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

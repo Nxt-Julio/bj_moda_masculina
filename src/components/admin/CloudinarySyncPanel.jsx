@@ -31,8 +31,9 @@ export function CloudinarySyncPanel({ onSync }) {
       {summary ? (
         <div className="sync-summary">
           <p className="small">
-            Encontradas: <strong>{summary.found}</strong> | Criadas: <strong>{summary.created}</strong> | Ja existiam:{' '}
-            <strong>{summary.skipped}</strong> | Erros: <strong>{summary.errors}</strong>
+            Encontradas: <strong>{summary.found}</strong> | Criadas: <strong>{summary.created}</strong> | Atualizadas:{' '}
+            <strong>{summary.updated || 0}</strong> | Ja existiam: <strong>{summary.skipped}</strong> | Erros:{' '}
+            <strong>{summary.errors}</strong>
           </p>
         </div>
       ) : null}

@@ -11,8 +11,9 @@ export function SiteFooter() {
 
         <div>
           <h4>Links Rapidos</h4>
-          <Link to="/#gravatas">Gravatas</Link>
-          <Link to="/#kits-especiais">Kits Especiais</Link>
+          <Link to="/?grupo=gravata#produtos">Gravatas</Link>
+          <Link to="/?grupo=gravata&subgrupo=kit#produtos">Kits Especiais</Link>
+          <Link to="/?grupo=acessorios#produtos">Acessorios</Link>
           <Link to="/#beneficios">Beneficios</Link>
           <Link to="/login">Minha Conta</Link>
         </div>

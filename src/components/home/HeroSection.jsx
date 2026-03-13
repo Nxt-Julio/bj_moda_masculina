@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import seal from '../../assets/bj-seal.svg';
 import { heroImage } from '../../data/siteContent';
 
@@ -17,12 +18,12 @@ export function HeroSection() {
         <h1>Elegancia em cada detalhe para o homem moderno.</h1>
         <p>Gravatas, kits e acessorios para homens que valorizam estilo, sofisticacao e presenca.</p>
         <div className="hero-actions">
-          <a className="btn" href="#produtos">
+          <Link className="btn" to="/?grupo=gravata#produtos">
             Ver colecao
-          </a>
-          <a className="btn secondary" href="#kits-especiais">
+          </Link>
+          <Link className="btn secondary" to="/?grupo=gravata&subgrupo=kit#produtos">
             Explorar kits
-          </a>
+          </Link>
         </div>
       </div>
     </section>

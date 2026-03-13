@@ -24,6 +24,33 @@ function SectionAnchor({ sectionId, children }) {
   );
 }
 
+function CatalogAnchor({ groupSlug, subgroupSlug = '', children }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleClick = (event) => {
+    event.preventDefault();
+
+    const search = new URLSearchParams();
+    if (groupSlug && groupSlug !== 'todos') search.set('grupo', groupSlug);
+    if (subgroupSlug) search.set('subgrupo', subgroupSlug);
+
+    navigate({ pathname: '/', search: search.toString() ? `?${search.toString()}` : '', hash: '#produtos' });
+
+    if (location.pathname === '/') {
+      window.requestAnimationFrame(() => {
+        document.getElementById('produtos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  };
+
+  return (
+    <a href="/#produtos" onClick={handleClick}>
+      {children}
+    </a>
+  );
+}
+
 export function SiteHeader() {
   const navigate = useNavigate();
   const { currentUser, logout } = useStore();
@@ -40,11 +67,19 @@ export function SiteHeader() {
           </Link>
 
           <nav className="main-nav" aria-label="Menu principal">
-            <SectionAnchor sectionId="gravatas">Gravatas</SectionAnchor>
-            <SectionAnchor sectionId="kits">Kits</SectionAnchor>
-            <SectionAnchor sectionId="crianca">Crianca</SectionAnchor>
-            <SectionAnchor sectionId="prendedores">Prendedores</SectionAnchor>
-            <SectionAnchor sectionId="abotoaduras">Abotoaduras</SectionAnchor>
+            <CatalogAnchor groupSlug="gravata">Gravatas</CatalogAnchor>
+            <CatalogAnchor groupSlug="gravata" subgroupSlug="kit">
+              Kits
+            </CatalogAnchor>
+            <CatalogAnchor groupSlug="gravata" subgroupSlug="infantil">
+              Infantil
+            </CatalogAnchor>
+            <CatalogAnchor groupSlug="acessorios" subgroupSlug="pressilha">
+              Pressilhas
+            </CatalogAnchor>
+            <CatalogAnchor groupSlug="acessorios" subgroupSlug="abotoadura">
+              Abotoaduras
+            </CatalogAnchor>
           </nav>
 
           <div className="header-actions">

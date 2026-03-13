@@ -1,33 +1,43 @@
 export const categories = [
   {
-    id: 'gravatas',
+    id: 'gravata',
     title: 'Gravatas',
     image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=700&q=80',
-    target: 'produtos',
+    groupSlug: 'gravata',
   },
   {
-    id: 'kits',
+    id: 'gravata-borboleta',
+    title: 'Borboleta',
+    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
+    groupSlug: 'gravata',
+    subgroupSlug: 'borboleta',
+  },
+  {
+    id: 'gravata-kit',
     title: 'Kits',
     image: 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?auto=format&fit=crop&w=700&q=80',
-    target: 'kits-especiais',
+    groupSlug: 'gravata',
+    subgroupSlug: 'kit',
   },
   {
-    id: 'crianca',
-    title: 'Crianca',
-    image: 'https://images.unsplash.com/photo-1597256679311-673c17979f84?auto=format&fit=crop&w=700&q=80',
-    target: 'produtos',
-  },
-  {
-    id: 'prendedores',
-    title: 'Prendedores de Gravata',
+    id: 'acessorios',
+    title: 'Acessorios',
     image: 'https://images.unsplash.com/photo-1570021977627-0f1dd6b0f0f0?auto=format&fit=crop&w=700&q=80',
-    target: 'produtos',
+    groupSlug: 'acessorios',
+  },
+  {
+    id: 'pressilha',
+    title: 'Pressilhas',
+    image: 'https://images.unsplash.com/photo-1570021977627-0f1dd6b0f0f0?auto=format&fit=crop&w=700&q=80',
+    groupSlug: 'acessorios',
+    subgroupSlug: 'pressilha',
   },
   {
     id: 'abotoaduras',
     title: 'Abotoaduras',
     image: 'https://images.unsplash.com/photo-1604014056139-53a89f1f5d90?auto=format&fit=crop&w=700&q=80',
-    target: 'produtos',
+    groupSlug: 'acessorios',
+    subgroupSlug: 'abotoadura',
   },
 ];
 

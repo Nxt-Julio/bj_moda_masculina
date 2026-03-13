@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { catalogGroups, getSubgroupsForGroup } from '../../data/catalogTaxonomy';
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -16,6 +17,8 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
     price: '',
     stock: 0,
     imageUrl: '',
+    groupSlug: '',
+    subgroupSlug: '',
     active: true,
   });
   const [uploadMessage, setUploadMessage] = useState('');
@@ -27,9 +30,13 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
       price: initialProduct ? (initialProduct.priceCents / 100).toFixed(2).replace('.', ',') : '',
       stock: initialProduct?.stock ?? 0,
       imageUrl: initialProduct?.imageUrl || '',
+      groupSlug: initialProduct?.groupSlug || '',
+      subgroupSlug: initialProduct?.subgroupSlug || '',
       active: initialProduct?.active ?? true,
     });
   }, [initialProduct]);
+
+  const subgroupOptions = getSubgroupsForGroup(form.groupSlug);
 
   const handleFileChange = async (event) => {
     const file = event.target.files?.[0];
@@ -79,6 +86,47 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
               onChange={(event) => setForm({ ...form, price: event.target.value })}
               required
             />
+          </div>
+
+          <div>
+            <label htmlFor="product-group">Grupo principal</label>
+            <select
+              id="product-group"
+              value={form.groupSlug}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  groupSlug: event.target.value,
+                  subgroupSlug: '',
+                })
+              }
+              required
+            >
+              <option value="">Selecione</option>
+              {catalogGroups.map((group) => (
+                <option key={group.slug} value={group.slug}>
+                  {group.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="product-subgroup">Subcategoria</label>
+            <select
+              id="product-subgroup"
+              value={form.subgroupSlug}
+              onChange={(event) => setForm({ ...form, subgroupSlug: event.target.value })}
+              required
+              disabled={!form.groupSlug}
+            >
+              <option value="">{form.groupSlug ? 'Selecione' : 'Escolha o grupo primeiro'}</option>
+              {subgroupOptions.map((subgroup) => (
+                <option key={subgroup.slug} value={subgroup.slug}>
+                  {subgroup.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

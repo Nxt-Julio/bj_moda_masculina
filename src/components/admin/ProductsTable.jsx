@@ -16,6 +16,8 @@ export function ProductsTable({ products, onEdit, onDelete }) {
           <tr>
             <th>ID</th>
             <th>Nome</th>
+            <th>Grupo</th>
+            <th>Subgrupo</th>
             <th>Preco</th>
             <th>Estoque</th>
             <th>Ativo</th>
@@ -27,6 +29,8 @@ export function ProductsTable({ products, onEdit, onDelete }) {
             <tr key={product.id}>
               <td>{product.id}</td>
               <td>{product.name}</td>
+              <td>{product.groupName || '-'}</td>
+              <td>{product.subgroupName || '-'}</td>
               <td>{formatCurrency(product.priceCents)}</td>
               <td>{product.stock}</td>
               <td>{product.active ? 'Sim' : 'Nao'}</td>

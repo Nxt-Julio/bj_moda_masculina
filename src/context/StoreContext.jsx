@@ -25,6 +25,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
+import { buildTaxonomyFields, compareCatalogProducts } from '../data/catalogTaxonomy';
 import { auth, db } from '../lib/firebase';
 import { initialStore } from '../data/initialStore';
 import { parsePriceToCents } from '../utils/formatters';
@@ -45,7 +46,22 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function normalizeGroupValue(data, taxonomy) {
+  return data.groupSlug ?? data.grupoSlug ?? taxonomy.groupSlug ?? '';
+}
+
+function normalizeSubgroupValue(data, taxonomy) {
+  return data.subgroupSlug ?? data.subgrupoSlug ?? taxonomy.subgroupSlug ?? '';
+}
+
 function normalizeProduct(productId, data) {
+  const fallbackText = [data.name, data.nome, data.cloudinaryPublicId, data.imageUrl, data.imagemUrl].filter(Boolean).join(' ');
+  const taxonomy = buildTaxonomyFields({
+    groupSlug: data.groupSlug ?? data.grupoSlug,
+    subgroupSlug: data.subgroupSlug ?? data.subgrupoSlug,
+    fallbackText,
+  });
+
   return {
     id: productId,
     ...data,
@@ -55,6 +71,36 @@ function normalizeProduct(productId, data) {
     stock: data.stock ?? data.estoque ?? 0,
     imageUrl: data.imageUrl ?? data.imagemUrl ?? '',
     active: data.active ?? data.ativo ?? true,
+    groupSlug: normalizeGroupValue(data, taxonomy),
+    groupName: data.groupName ?? data.grupoNome ?? taxonomy.groupName ?? '',
+    subgroupSlug: normalizeSubgroupValue(data, taxonomy),
+    subgroupName: data.subgroupName ?? data.subgrupoNome ?? taxonomy.subgroupName ?? '',
+  };
+}
+
+function buildProductDocument(payload, timestamp, options = {}) {
+  const taxonomy = buildTaxonomyFields({
+    groupSlug: payload.groupSlug,
+    subgroupSlug: payload.subgroupSlug,
+    fallbackText: `${payload.name || ''} ${payload.description || ''} ${payload.imageUrl || ''}`.trim(),
+  });
+
+  return {
+    name: payload.name.trim(),
+    nome: payload.name.trim(),
+    description: (payload.description || '').trim(),
+    descricao: (payload.description || '').trim(),
+    priceCents: payload.priceCents,
+    preco: payload.priceCents / 100,
+    stock: payload.stock,
+    estoque: payload.stock,
+    imageUrl: (payload.imageUrl || '').trim(),
+    imagemUrl: (payload.imageUrl || '').trim(),
+    active: payload.active,
+    ativo: payload.active,
+    ...taxonomy,
+    updatedAt: timestamp,
+    ...(options.includeCreatedAt ? { createdAt: timestamp } : {}),
   };
 }
 
@@ -345,26 +391,19 @@ export function StoreProvider({ children }) {
     const priceCents = parsePriceToCents(payload.price);
     const stock = Number(payload.stock);
 
-    if (!payload.name || priceCents === null || !Number.isInteger(stock) || stock < 0) {
+    if (!payload.name || priceCents === null || !Number.isInteger(stock) || stock < 0 || !payload.groupSlug || !payload.subgroupSlug) {
       throw new Error('Dados invalidos para salvar o produto.');
     }
 
     const timestamp = nowIso();
-    const data = {
-      name: payload.name.trim(),
-      nome: payload.name.trim(),
-      description: payload.description.trim(),
-      descricao: payload.description.trim(),
-      priceCents,
-      preco: priceCents / 100,
-      stock,
-      estoque: stock,
-      imageUrl: payload.imageUrl.trim(),
-      imagemUrl: payload.imageUrl.trim(),
-      active: payload.active,
-      ativo: payload.active,
-      updatedAt: timestamp,
-    };
+    const data = buildProductDocument(
+      {
+        ...payload,
+        priceCents,
+        stock,
+      },
+      timestamp
+    );
 
     if (productId) {
       await setDoc(doc(db, 'products', String(productId)), data, { merge: true });
@@ -374,8 +413,15 @@ export function StoreProvider({ children }) {
 
     const newRef = doc(collection(db, 'products'));
     await setDoc(newRef, {
-      ...data,
-      createdAt: timestamp,
+      ...buildProductDocument(
+        {
+          ...payload,
+          priceCents,
+          stock,
+        },
+        timestamp,
+        { includeCreatedAt: true }
+      ),
     });
     pushNotice('success', 'Produto criado com sucesso.');
   };
@@ -394,20 +440,42 @@ export function StoreProvider({ children }) {
 
     for (const item of items) {
       const newRef = doc(collection(db, 'products'));
-      batch.set(newRef, {
-        name: item.name,
-        description: item.description || '',
-        priceCents: item.priceCents,
-        stock: item.stock,
-        imageUrl: item.imageUrl,
-        active: item.active,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
+      batch.set(
+        newRef,
+        buildProductDocument(
+          {
+            name: item.name,
+            description: item.description || '',
+            priceCents: item.priceCents,
+            stock: item.stock,
+            imageUrl: item.imageUrl,
+            active: item.active,
+            groupSlug: item.groupSlug,
+            subgroupSlug: item.subgroupSlug,
+          },
+          timestamp,
+          { includeCreatedAt: true }
+        )
+      );
     }
 
     await batch.commit();
     pushNotice('success', `${items.length} produto(s) importado(s) com sucesso.`);
+  };
+
+  const fetchCatalogProducts = async ({ groupSlug = '', subgroupSlug = '' } = {}) => {
+    const constraints = [where('active', '==', true)];
+
+    if (groupSlug && groupSlug !== 'todos') {
+      constraints.push(where('groupSlug', '==', groupSlug));
+    }
+
+    if (subgroupSlug) {
+      constraints.push(where('subgroupSlug', '==', subgroupSlug));
+    }
+
+    const snapshot = await getDocs(query(collection(db, 'products'), ...constraints));
+    return snapshot.docs.map((item) => normalizeProduct(item.id, item.data())).sort(compareCatalogProducts);
   };
 
   const syncCloudinaryProducts = async () => {
@@ -435,7 +503,7 @@ export function StoreProvider({ children }) {
 
     pushNotice(
       'success',
-      `Sincronizacao concluida: ${payload.created} criado(s), ${payload.skipped} ja existente(s), ${payload.errors} erro(s).`
+      `Sincronizacao concluida: ${payload.created} criado(s), ${payload.updated || 0} atualizado(s), ${payload.skipped} ja existente(s), ${payload.errors} erro(s).`
     );
 
     return payload;
@@ -510,6 +578,7 @@ export function StoreProvider({ children }) {
     createOrder,
     saveProduct,
     importProductsBatch,
+    fetchCatalogProducts,
     syncCloudinaryProducts,
     deleteProduct,
     updateOrderStatus,

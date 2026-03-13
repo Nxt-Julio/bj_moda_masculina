@@ -1,4 +1,5 @@
 import { parsePriceToCents } from './formatters';
+import { buildTaxonomyFields } from '../data/catalogTaxonomy';
 
 function parseActive(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -41,12 +42,13 @@ export function parseProductsBulkInput(input) {
     const columns = splitLine(line);
 
     if (columns.length < 4) {
-      throw new Error(`Linha ${index + 1} invalida. Use: nome | url | preco | estoque | descricao | ativo`);
+      throw new Error(`Linha ${index + 1} invalida. Use: nome | url | preco | estoque | descricao | ativo | grupo | subgrupo`);
     }
 
-    const [name, imageUrl, priceText, stockText, description = '', activeText = 'sim'] = columns;
+    const [name, imageUrl, priceText, stockText, description = '', activeText = 'sim', groupSlug = '', subgroupSlug = ''] = columns;
     const priceCents = parsePriceToCents(priceText);
     const stock = Number(stockText);
+    const taxonomy = buildTaxonomyFields({ groupSlug, subgroupSlug, fallbackText: `${name} ${description} ${imageUrl}` });
 
     if (!name) {
       throw new Error(`Linha ${index + 1}: nome obrigatorio.`);
@@ -64,6 +66,10 @@ export function parseProductsBulkInput(input) {
       throw new Error(`Linha ${index + 1}: estoque invalido.`);
     }
 
+    if (!taxonomy.groupSlug || !taxonomy.subgroupSlug) {
+      throw new Error(`Linha ${index + 1}: informe grupo e subgrupo validos.`);
+    }
+
     products.push({
       name: name.trim(),
       imageUrl: imageUrl.trim(),
@@ -71,6 +77,10 @@ export function parseProductsBulkInput(input) {
       stock,
       description: description.trim(),
       active: parseActive(activeText),
+      groupSlug: taxonomy.groupSlug,
+      groupName: taxonomy.groupName,
+      subgroupSlug: taxonomy.subgroupSlug,
+      subgroupName: taxonomy.subgroupName,
     });
   });
 

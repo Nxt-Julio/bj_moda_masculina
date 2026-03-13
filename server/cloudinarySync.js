@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { getAdminFirestore } from './firebaseAdmin.js';
+import { buildTaxonomyFields, hasStoredTaxonomy } from '../src/data/catalogTaxonomy.js';
 
 const PRODUCTS_COLLECTION = 'products';
 
@@ -49,26 +50,30 @@ export async function fetchCloudinaryImages(logger = console) {
   return resources;
 }
 
-async function loadExistingCloudinaryPublicIds(firestore) {
+async function loadExistingCloudinaryProducts(firestore) {
   const snapshot = await firestore.collection(PRODUCTS_COLLECTION).get();
-  const ids = new Set();
+  const products = new Map();
 
   snapshot.forEach((documentSnapshot) => {
     const data = documentSnapshot.data();
     if (data.cloudinaryPublicId) {
-      ids.add(data.cloudinaryPublicId);
+      products.set(data.cloudinaryPublicId, {
+        id: documentSnapshot.id,
+        data,
+      });
     }
   });
 
-  return ids;
+  return products;
 }
 
-export function hasDuplicateCloudinaryProduct(existingPublicIds, cloudinaryPublicId) {
-  return existingPublicIds.has(cloudinaryPublicId);
+export function hasDuplicateCloudinaryProduct(existingProducts, cloudinaryPublicId) {
+  return existingProducts.has(cloudinaryPublicId);
 }
 
 export function buildProductPayload(resource) {
   const timestamp = nowIso();
+  const taxonomy = buildTaxonomyFields({ fallbackText: resource.public_id });
 
   return {
     nome: '',
@@ -81,6 +86,7 @@ export function buildProductPayload(resource) {
     updatedAt: timestamp,
     origem: 'cloudinary',
     ativo: true,
+    ...taxonomy,
 
     name: '',
     priceCents: 0,
@@ -97,9 +103,10 @@ function createDeterministicDocId(cloudinaryPublicId) {
 }
 
 export async function saveImagesToFirestore(firestore, resources, logger = console) {
-  const existingPublicIds = await loadExistingCloudinaryPublicIds(firestore);
+  const existingProducts = await loadExistingCloudinaryProducts(firestore);
   let created = 0;
   let skipped = 0;
+  let updated = 0;
   let errors = 0;
 
   let batch = firestore.batch();
@@ -123,7 +130,25 @@ export async function saveImagesToFirestore(firestore, resources, logger = conso
         throw new Error('Imagem sem secure_url ou public_id.');
       }
 
-      if (hasDuplicateCloudinaryProduct(existingPublicIds, resource.public_id)) {
+      const existing = existingProducts.get(resource.public_id);
+      if (existing) {
+        const taxonomy = buildTaxonomyFields({ fallbackText: resource.public_id });
+
+        if (!hasStoredTaxonomy(existing.data) && taxonomy.groupSlug && taxonomy.subgroupSlug) {
+          batch.set(
+            firestore.collection(PRODUCTS_COLLECTION).doc(existing.id),
+            {
+              ...taxonomy,
+              updatedAt: nowIso(),
+            },
+            { merge: true }
+          );
+          batchSize += 1;
+          updated += 1;
+          await commitBatchIfNeeded();
+          continue;
+        }
+
         skipped += 1;
         continue;
       }
@@ -132,7 +157,7 @@ export async function saveImagesToFirestore(firestore, resources, logger = conso
       batch.set(productRef, buildProductPayload(resource));
       batchSize += 1;
       created += 1;
-      existingPublicIds.add(resource.public_id);
+      existingProducts.set(resource.public_id, { id: productRef.id, data: buildProductPayload(resource) });
 
       await commitBatchIfNeeded();
     } catch (error) {
@@ -146,6 +171,7 @@ export async function saveImagesToFirestore(firestore, resources, logger = conso
   return {
     created,
     skipped,
+    updated,
     errors,
   };
 }
@@ -164,6 +190,7 @@ export async function syncCloudinaryToFirestore(options = {}) {
   logger.log(`- imagens encontradas: ${resources.length}`);
   logger.log(`- registros criados: ${summary.created}`);
   logger.log(`- registros ja existentes: ${summary.skipped}`);
+  logger.log(`- registros atualizados: ${summary.updated}`);
   logger.log(`- erros: ${summary.errors}`);
 
   return {

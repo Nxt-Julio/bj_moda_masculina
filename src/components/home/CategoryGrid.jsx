@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { categories } from '../../data/siteContent';
 import { SectionHeader } from '../shared/SectionHeader';
 
@@ -12,9 +13,21 @@ export function CategoryGrid() {
             <img src={category.image} alt={category.title} />
             <div className="category-content">
               <h3>{category.title}</h3>
-              <a className="btn secondary" href={`#${category.target}`}>
+              <Link
+                className="btn secondary"
+                to={{
+                  pathname: '/',
+                  search: `?${new URLSearchParams(
+                    Object.entries({
+                      grupo: category.groupSlug || '',
+                      subgrupo: category.subgroupSlug || '',
+                    }).filter(([, value]) => value)
+                  ).toString()}`,
+                  hash: '#produtos',
+                }}
+              >
                 Explorar
-              </a>
+              </Link>
             </div>
           </article>
         ))}

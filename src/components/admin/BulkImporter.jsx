@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { parseProductsBulkInput } from '../../utils/bulkImport';
 import { formatCurrency } from '../../utils/formatters';
 
-const exampleText = `Gravata Azul | https://res.cloudinary.com/.../gravata-azul.jpg | 89,90 | 10 | Gravata social azul em cetim | sim
-Kit Executivo | https://res.cloudinary.com/.../kit-executivo.jpg | 199,90 | 5 | Kit com gravata, lenco e prendedor | sim`;
+const exampleText = `Gravata Azul | https://res.cloudinary.com/.../gravata-azul.jpg | 89,90 | 10 | Gravata social azul em cetim | sim | gravata | lisa
+Kit Executivo | https://res.cloudinary.com/.../kit-executivo.jpg | 199,90 | 5 | Kit com gravata, lenco e prendedor | sim | gravata | kit`;
 
 export function BulkImporter({ onImport }) {
   const [text, setText] = useState(exampleText);
@@ -38,7 +38,7 @@ export function BulkImporter({ onImport }) {
     <section className="panel">
       <div className="page-head">
         <h2>Importador em lote</h2>
-        <p className="small">Cole uma linha por produto no formato: nome | url | preco | estoque | descricao | ativo</p>
+        <p className="small">Cole uma linha por produto no formato: nome | url | preco | estoque | descricao | ativo | grupo | subgrupo</p>
       </div>
 
       <label htmlFor="bulk-products">Produtos em lote</label>
@@ -74,6 +74,8 @@ export function BulkImporter({ onImport }) {
                   <th>Nome</th>
                   <th>Preco</th>
                   <th>Estoque</th>
+                  <th>Grupo</th>
+                  <th>Subgrupo</th>
                   <th>Ativo</th>
                 </tr>
               </thead>
@@ -83,6 +85,8 @@ export function BulkImporter({ onImport }) {
                     <td>{product.name}</td>
                     <td>{formatCurrency(product.priceCents)}</td>
                     <td>{product.stock}</td>
+                    <td>{product.groupName}</td>
+                    <td>{product.subgroupName}</td>
                     <td>{product.active ? 'Sim' : 'Nao'}</td>
                   </tr>
                 ))}
