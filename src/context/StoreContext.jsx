@@ -7,6 +7,7 @@ import {
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from 'firebase/auth';
@@ -30,6 +31,9 @@ import { parsePriceToCents } from '../utils/formatters';
 
 const StoreContext = createContext(null);
 const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 const adminEmails = new Set(
   String(import.meta.env.VITE_ADMIN_EMAILS || 'bjmodasocial@gmail.com,admin@bjmodas.com')
     .split(',')
@@ -219,16 +223,29 @@ export function StoreProvider({ children }) {
   };
 
   const loginWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
-    const profile = await ensureUserProfile(result.user);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const profile = await ensureUserProfile(result.user);
 
-    pushNotice('success', `Bem-vindo, ${profile.name || result.user.displayName || 'usuario'}.`);
-    return {
-      id: result.user.uid,
-      name: profile.name || result.user.displayName || 'Usuario',
-      email: result.user.email || profile.email || '',
-      role: profile.role || 'customer',
-    };
+      pushNotice('success', `Bem-vindo, ${profile.name || result.user.displayName || 'usuario'}.`);
+      return {
+        id: result.user.uid,
+        name: profile.name || result.user.displayName || 'Usuario',
+        email: result.user.email || profile.email || '',
+        role: profile.role || 'customer',
+      };
+    } catch (error) {
+      if (
+        error?.code === 'auth/popup-blocked' ||
+        error?.code === 'auth/popup-closed-by-user' ||
+        error?.code === 'auth/cancelled-popup-request'
+      ) {
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      }
+
+      throw error;
+    }
   };
 
   const register = async ({ name, email, password }) => {

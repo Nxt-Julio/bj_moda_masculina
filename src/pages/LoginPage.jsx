@@ -33,7 +33,9 @@ export function LoginPage() {
   const handleGoogleLogin = async () => {
     try {
       const user = await loginWithGoogle();
-      navigate(user.role === 'admin' ? '/admin' : '/');
+      if (user) {
+        navigate(user.role === 'admin' ? '/admin' : '/');
+      }
     } catch (error) {
       pushNotice('error', error.message);
     }
