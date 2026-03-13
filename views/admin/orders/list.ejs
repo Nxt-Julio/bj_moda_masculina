@@ -1,0 +1,50 @@
+﻿<%- include('../../partials/header') %>
+
+<section>
+  <h1>Pedidos</h1>
+
+  <% if (orders.length === 0) { %>
+    <div class="card"><p>Nenhum pedido realizado ainda.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cliente</th>
+            <th>E-mail</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Data</th>
+            <th>Atualizar</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach(order => { %>
+            <tr>
+              <td><%= order.id %></td>
+              <td><%= order.customer_name %></td>
+              <td><%= order.customer_email %></td>
+              <td>R$ <%= (order.total_cents / 100).toFixed(2).replace('.', ',') %></td>
+              <td><%= order.status %></td>
+              <td><%= order.created_at %></td>
+              <td>
+                <form class="inline" action="/admin/orders/<%= order.id %>/status" method="post">
+                  <select name="status">
+                    <option value="novo" <%= order.status === 'novo' ? 'selected' : '' %>>novo</option>
+                    <option value="pago" <%= order.status === 'pago' ? 'selected' : '' %>>pago</option>
+                    <option value="enviado" <%= order.status === 'enviado' ? 'selected' : '' %>>enviado</option>
+                    <option value="cancelado" <%= order.status === 'cancelado' ? 'selected' : '' %>>cancelado</option>
+                  </select>
+                  <button type="submit">Salvar</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../../partials/footer') %>

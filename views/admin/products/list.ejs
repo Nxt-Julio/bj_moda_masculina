@@ -1,0 +1,44 @@
+﻿<%- include('../../partials/header') %>
+
+<section>
+  <h1>Produtos</h1>
+  <p><a class="btn" href="/admin/products/new">Novo produto</a></p>
+
+  <% if (products.length === 0) { %>
+    <div class="card"><p>Nenhum produto cadastrado.</p></div>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Preço</th>
+            <th>Estoque</th>
+            <th>Ativo</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% products.forEach(product => { %>
+            <tr>
+              <td><%= product.id %></td>
+              <td><%= product.name %></td>
+              <td>R$ <%= (product.price_cents / 100).toFixed(2).replace('.', ',') %></td>
+              <td><%= product.stock %></td>
+              <td><%= product.active ? 'Sim' : 'Não' %></td>
+              <td>
+                <a class="btn secondary" href="/admin/products/<%= product.id %>/edit">Editar</a>
+                <form action="/admin/products/<%= product.id %>/delete" method="post" style="display:inline;" onsubmit="return confirm('Excluir produto?')">
+                  <button class="danger" type="submit">Excluir</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include('../../partials/footer') %>

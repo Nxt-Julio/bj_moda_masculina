@@ -1,0 +1,159 @@
+<%- include('partials/header') %>
+
+<section class="hero" id="topo">
+  <div class="hero-media">
+    <img
+      src="/images/hero-gravatas.jpg"
+      alt="Interior da loja BJ com gravatas e acessórios sociais masculinos"
+      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1594938291221-94f18cbb5660?auto=format&fit=crop&w=1600&q=80';"
+    />
+  </div>
+  <div class="hero-content">
+    <p class="hero-kicker">Coleção Premium</p>
+    <h1>Elegância em Cada Detalhe</h1>
+    <p>Gravatas e acessórios para homens que valorizam estilo e sofisticação.</p>
+    <a class="btn" href="#produtos">Ver Coleção</a>
+  </div>
+</section>
+
+<section class="section-block" id="categorias">
+  <div class="section-header">
+    <p class="section-kicker">Seleção Curada</p>
+    <h2>Categorias</h2>
+  </div>
+
+  <div class="category-grid">
+    <article class="category-card" id="gravatas">
+      <img src="https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?auto=format&fit=crop&w=700&q=80" alt="Gravatas masculinas" />
+      <div class="category-content">
+        <h3>Gravatas</h3>
+        <a class="btn secondary" href="#produtos">Explorar</a>
+      </div>
+    </article>
+
+    <article class="category-card" id="kits">
+      <img src="https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?auto=format&fit=crop&w=700&q=80" alt="Kits completos de acessórios" />
+      <div class="category-content">
+        <h3>Kits</h3>
+        <a class="btn secondary" href="#kits-especiais">Explorar</a>
+      </div>
+    </article>
+
+    <article class="category-card" id="crianca">
+      <img src="https://images.unsplash.com/photo-1597256679311-673c17979f84?auto=format&fit=crop&w=700&q=80" alt="Moda social infantil" />
+      <div class="category-content">
+        <h3>Criança</h3>
+        <a class="btn secondary" href="#produtos">Explorar</a>
+      </div>
+    </article>
+
+    <article class="category-card" id="prendedores">
+      <img src="https://images.unsplash.com/photo-1570021977627-0f1dd6b0f0f0?auto=format&fit=crop&w=700&q=80" alt="Prendedores de gravata" />
+      <div class="category-content">
+        <h3>Prendedores de Gravata</h3>
+        <a class="btn secondary" href="#produtos">Explorar</a>
+      </div>
+    </article>
+
+    <article class="category-card" id="abotoaduras">
+      <img src="https://images.unsplash.com/photo-1604014056139-53a89f1f5d90?auto=format&fit=crop&w=700&q=80" alt="Abotoaduras elegantes" />
+      <div class="category-content">
+        <h3>Abotoaduras</h3>
+        <a class="btn secondary" href="#produtos">Explorar</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="section-block" id="produtos">
+  <div class="section-header">
+    <p class="section-kicker">Curadoria Premium</p>
+    <h2>Produtos em Destaque</h2>
+  </div>
+
+  <% if (products.length === 0) { %>
+    <div class="card empty-card">
+      <p>Nenhum produto cadastrado no momento. Use o Portal ADM para criar os primeiros itens.</p>
+    </div>
+  <% } else { %>
+    <div class="product-grid">
+      <% products.forEach(product => { %>
+        <article class="product-card">
+          <% if (product.image_url) { %>
+            <img src="<%= product.image_url %>" alt="<%= product.name %>" />
+          <% } else { %>
+            <img src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?auto=format&fit=crop&w=800&q=80" alt="Produto sem imagem" />
+          <% } %>
+
+          <div class="product-content">
+            <h3><%= product.name %></h3>
+            <p class="small"><%= product.description || 'Acabamento refinado para ocasiões especiais.' %></p>
+            <p class="price">R$ <%= (product.price_cents / 100).toFixed(2).replace('.', ',') %></p>
+            <p class="stock">Estoque: <strong><%= product.stock %></strong></p>
+
+            <% if (currentUser && currentUser.role === 'customer') { %>
+              <% if (product.stock > 0) { %>
+                <form class="inline" action="/orders" method="post">
+                  <input type="hidden" name="product_id" value="<%= product.id %>" />
+                  <input type="number" name="quantity" min="1" max="<%= product.stock %>" value="1" required />
+                  <button type="submit">Comprar</button>
+                </form>
+              <% } else { %>
+                <p class="small">Sem estoque no momento.</p>
+              <% } %>
+            <% } else if (!currentUser) { %>
+              <a class="btn secondary" href="/login">Faça login para comprar</a>
+            <% } %>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<section class="section-block about-block" id="sobre">
+  <div class="section-header">
+    <p class="section-kicker">Nossa Marca</p>
+    <h2>Sobre a BJ</h2>
+  </div>
+  <p class="about-text">
+    A RJ Moda Social Masculina nasceu para elevar o estilo do homem moderno. Cada gravata é escolhida para transmitir
+    elegância, personalidade e sofisticação.
+  </p>
+</section>
+
+<section class="section-block kit-block" id="kits-especiais">
+  <div class="section-header">
+    <p class="section-kicker">Combinações Exclusivas</p>
+    <h2>Kits Especiais</h2>
+  </div>
+
+  <div class="kit-highlight">
+    <div>
+      <h3>Kit Assinatura Premium</h3>
+      <p>Combine gravata, abotoadura e prendedor com curadoria sofisticada para eventos, negócios e ocasiões formais.</p>
+      <a class="btn" href="#produtos">Montar Meu Kit</a>
+    </div>
+    <ul>
+      <li>Gravata de seda com acabamento premium</li>
+      <li>Abotoaduras com detalhe metálico elegante</li>
+      <li>Prendedor de gravata em aço escovado</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section-block" id="beneficios">
+  <div class="section-header">
+    <p class="section-kicker">Diferenciais BJ</p>
+    <h2>Benefícios</h2>
+  </div>
+
+  <div class="benefit-grid">
+    <article class="benefit-item">&#10003; Qualidade Premium</article>
+    <article class="benefit-item">&#10003; Envio para todo Brasil</article>
+    <article class="benefit-item">&#10003; Pagamento Seguro</article>
+    <article class="benefit-item">&#10003; Estilo e Sofisticação</article>
+  </div>
+</section>
+
+<%- include('partials/footer') %>

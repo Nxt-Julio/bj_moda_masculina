@@ -1,0 +1,84 @@
+﻿<%- include('../../partials/header') %>
+
+<section class="panel">
+  <h1><%= product ? 'Editar produto' : 'Novo produto' %></h1>
+
+  <form action="<%= product ? '/admin/products/' + product.id + '/update' : '/admin/products' %>" method="post">
+    <label for="name">Nome</label>
+    <input id="name" name="name" type="text" value="<%= product ? product.name : '' %>" required />
+
+    <label for="description">Descrição</label>
+    <textarea id="description" name="description"><%= product ? product.description : '' %></textarea>
+
+    <label for="price">Preço (R$)</label>
+    <input id="price" name="price" type="text" value="<%= product ? (product.price_cents / 100).toFixed(2).replace('.', ',') : '' %>" required />
+
+    <label for="stock">Estoque</label>
+    <input id="stock" name="stock" type="number" min="0" value="<%= product ? product.stock : 0 %>" required />
+
+    <label for="image_url">URL da imagem</label>
+    <input id="image_url" name="image_url" type="url" value="<%= product ? product.image_url : '' %>" />
+    <p class="small">Opcional: envie uma imagem para o Cloudinary e a URL será preenchida automaticamente.</p>
+
+    <label for="image_file">Upload de imagem (JPG, PNG ou WEBP, até 5MB)</label>
+    <input id="image_file" type="file" accept="image/jpeg,image/png,image/webp" />
+    <div class="inline">
+      <button id="upload-image-btn" type="button" class="secondary">Enviar para Cloudinary</button>
+      <span id="upload-status" class="small" aria-live="polite"></span>
+    </div>
+
+    <label for="active">Produto ativo?</label>
+    <select id="active" name="active">
+      <option value="1" <%= product ? (product.active ? 'selected' : '') : 'selected' %>>Sim</option>
+      <option value="" <%= product && !product.active ? 'selected' : '' %>>Não</option>
+    </select>
+
+    <button type="submit"><%= product ? 'Salvar alterações' : 'Criar produto' %></button>
+  </form>
+</section>
+
+<script>
+  (() => {
+    const fileInput = document.getElementById('image_file');
+    const uploadButton = document.getElementById('upload-image-btn');
+    const statusLabel = document.getElementById('upload-status');
+    const imageUrlInput = document.getElementById('image_url');
+
+    if (!fileInput || !uploadButton || !statusLabel || !imageUrlInput) return;
+
+    uploadButton.addEventListener('click', async () => {
+      const selectedFile = fileInput.files && fileInput.files[0];
+      if (!selectedFile) {
+        statusLabel.textContent = 'Selecione um arquivo antes de enviar.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+
+      uploadButton.disabled = true;
+      statusLabel.textContent = 'Enviando imagem...';
+
+      try {
+        const response = await fetch('/admin/upload-image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Falha no upload.');
+        }
+
+        imageUrlInput.value = result.secure_url;
+        statusLabel.textContent = 'Upload concluído. URL preenchida com sucesso.';
+      } catch (error) {
+        statusLabel.textContent = error.message;
+      } finally {
+        uploadButton.disabled = false;
+      }
+    });
+  })();
+</script>
+
+<%- include('../../partials/footer') %>
