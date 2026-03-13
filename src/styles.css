@@ -27,6 +27,11 @@ html,
 body {
   margin: 0;
   padding: 0;
+  min-height: 100%;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 body {
@@ -108,6 +113,13 @@ a {
   border: 1px solid rgba(200, 164, 107, 0.8);
 }
 
+.logo-image {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 16px rgba(15, 42, 68, 0.12));
+}
+
 .logo-text {
   font-family: 'Playfair Display', serif;
   font-size: clamp(1rem, 1.35vw, 1.28rem);
@@ -136,6 +148,10 @@ a {
   background: var(--navy);
   color: #f7e8cd;
   transform: translateY(-1px);
+}
+
+.main-nav a.active {
+  background: rgba(15, 42, 68, 0.1);
 }
 
 .header-actions {
@@ -322,6 +338,30 @@ main {
   animation: hero-enter 0.8s ease;
 }
 
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.hero-badge img {
+  width: 36px;
+  height: 36px;
+}
+
+.hero-badge span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .hero-kicker {
   color: #f0d6aa;
   text-transform: uppercase;
@@ -342,6 +382,12 @@ main {
   max-width: 42ch;
   margin: 0 0 1.4rem;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .section-block {
@@ -448,6 +494,12 @@ main {
   color: var(--ink-soft);
   font-size: 0.88rem;
   margin: 0 0 0.45rem;
+}
+
+.support-note {
+  margin: 0;
+  color: #56677a;
+  font-size: 0.88rem;
 }
 
 .price {
@@ -667,6 +719,11 @@ button.danger {
   border-color: transparent;
 }
 
+.panel h2,
+.card h2 {
+  margin-top: 0;
+}
+
 .inline {
   display: flex;
   align-items: center;
@@ -735,6 +792,8 @@ th {
   background: #fcf7ef;
   padding: 1rem;
   margin: 1rem 0;
+  display: grid;
+  gap: 0.75rem;
 }
 
 .image-preview {
@@ -814,6 +873,10 @@ th {
   font-size: 0.88rem;
 }
 
+.footer-grid a {
+  width: fit-content;
+}
+
 .footer-grid a:hover {
   color: #fff;
 }
@@ -887,6 +950,11 @@ th {
     max-width: 92%;
   }
 
+  .hero-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .kit-highlight {
     grid-template-columns: 1fr;
   }
@@ -929,6 +997,10 @@ th {
 
   .hero-content {
     padding: 1.2rem;
+  }
+
+  .hero-badge {
+    padding: 0.45rem 0.75rem;
   }
 
   .category-grid,

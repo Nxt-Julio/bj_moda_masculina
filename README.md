@@ -1,113 +1,128 @@
-# BJ Modas Masculina - React + Express
+# BJ Moda Masculina - React + Vite
 
-Aplicacao web de moda social masculina com:
+Refatoracao do projeto BJ para uma arquitetura moderna com React e Vite, focada em:
 
-- vitrine de produtos em React
-- login e cadastro de clientes
-- portal administrativo
-- gestao de produtos e estoque
-- pedidos com atualizacao de status
-- banco SQLite local (`database.sqlite`)
+- build leve
+- deploy estatico na Vercel
+- compatibilidade com Node 18+
+- eliminacao de dependencias nativas problematicas no build
 
-## Arquitetura atual
+## O que mudou
 
-- frontend: SPA em React escrita somente com HTML, CSS e JavaScript
-- backend: Express servindo arquivos estaticos e API JSON
-- banco: SQLite com `better-sqlite3`
-
-Observacao:
-- o React e carregado no navegador via modulos ESM no arquivo `public/app.js`
-- nao ha TypeScript no projeto
-- nao ha mais renderizacao por EJS
+- migracao completa para `React + Vite`
+- estrutura em `src/`, `src/components/`, `src/pages/`, `src/assets/`
+- roteamento client-side com `react-router-dom`
+- estado e persistencia local com `localStorage`
+- remocao de `express`, `better-sqlite3`, `multer`, `cloudinary`, `bcryptjs` e outras dependencias do build antigo
+- configuracao pronta para SPA na Vercel com `vercel.json`
 
 ## Requisitos
 
-- Node.js 18+
+- Node.js 18 ou superior
+- npm ou yarn
 
-## Como executar
-
-1. Instale as dependencias:
+## Comandos
 
 ```bash
 npm install
+npm run dev
+npm run build
 ```
 
-No PowerShell, se precisar:
+O build gera a pasta:
 
 ```bash
-npm.cmd install
+dist/
 ```
-
-2. Inicie o servidor:
-
-```bash
-npm start
-```
-
-3. Abra no navegador:
-
-- http://localhost:3000
-
-Observacao sobre porta:
-
-- padrao: `3000`
-- se `3000` estiver ocupada, a aplicacao tenta automaticamente a proxima porta livre
-- para forcar uma porta especifica no PowerShell:
-
-```powershell
-$env:PORT=4000
-npm.cmd start
-```
-
-## Acesso inicial do administrador
-
-- e-mail: `admin@bjmodas.com`
-- senha: `admin123`
 
 ## Estrutura principal
 
-- `app.js`: servidor Express e rotas da API
-- `db.js`: schema e inicializacao do banco
-- `public/index.html`: entrada da SPA
-- `public/app.js`: interface React em JavaScript puro
-- `public/styles.css`: estilos globais
-- `docs/IMAGE_STANDARD.md`: padrao operacional de imagens
+```text
+.
++-- public/
+|   +-- images/
++-- src/
+|   +-- assets/
+|   |   +-- bj-seal.svg
+|   +-- components/
+|   |   +-- admin/
+|   |   +-- home/
+|   |   +-- layout/
+|   |   +-- shared/
+|   +-- context/
+|   |   +-- StoreContext.jsx
+|   +-- data/
+|   |   +-- initialStore.js
+|   |   +-- siteContent.js
+|   +-- pages/
+|   |   +-- AdminDashboardPage.jsx
+|   |   +-- AdminOrdersPage.jsx
+|   |   +-- AdminProductFormPage.jsx
+|   |   +-- AdminProductsPage.jsx
+|   |   +-- HomePage.jsx
+|   |   +-- LoginPage.jsx
+|   |   +-- NotFoundPage.jsx
+|   |   +-- OrdersPage.jsx
+|   |   +-- RegisterPage.jsx
+|   +-- utils/
+|   |   +-- formatters.js
+|   +-- App.jsx
+|   +-- main.jsx
+|   +-- styles.css
++-- index.html
++-- package.json
++-- vite.config.js
++-- vercel.json
+```
 
-## Endpoints principais
+## Observacao sobre dados
 
-- `GET /api/session`
-- `GET /api/products`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/orders/my`
-- `POST /api/orders`
-- `GET /api/admin/dashboard`
-- `GET /api/admin/products`
-- `POST /api/admin/products`
-- `PUT /api/admin/products/:id`
-- `DELETE /api/admin/products/:id`
-- `GET /api/admin/orders`
-- `PATCH /api/admin/orders/:id/status`
-- `POST /api/admin/upload-image`
+Para garantir deploy estatico e compatibilidade total com a Vercel, esta versao roda sem backend Node.
 
-## Upload de imagem com Cloudinary
+Isso significa que:
 
-Defina estas variaveis no ambiente antes de iniciar a aplicacao:
+- login, cadastro, produtos e pedidos funcionam em modo front-end
+- os dados ficam persistidos no `localStorage`
+- a conta admin demo e:
+  - e-mail: `admin@bjmodas.com`
+  - senha: `admin123`
 
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-- `SESSION_SECRET`
+## Deploy na Vercel
 
-Limites atuais:
+1. Suba o projeto para um repositorio Git.
+2. Importe o repositorio na Vercel.
+3. Configure:
 
-- formatos: JPG, PNG, WEBP
-- tamanho maximo: 5MB
+```text
+Framework Preset: Vite
+Build Command: npm run build
+Output Directory: dist
+Install Command: npm install
+```
 
-## Proximas evolucoes sugeridas
+4. Faca o deploy.
 
-- carrinho com multiplos itens
-- busca e filtro por categoria
-- recuperacao de senha
-- migracao do React CDN para build local caso queira deploy mais controlado
+O arquivo `vercel.json` ja inclui rewrite para SPA:
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
+
+## Observacao tecnica importante
+
+O aviso antigo:
+
+```text
+npm warn deprecated prebuild-install@7.1.3
+```
+
+vinha do fluxo anterior baseado em dependencias nativas, principalmente `better-sqlite3`.
+
+Nesta refatoracao, esse caminho foi removido do build. Hoje o projeto compila com `vite build` e gera `dist` corretamente para deploy.
