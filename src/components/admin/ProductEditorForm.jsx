@@ -17,8 +17,8 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
     price: '',
     stock: 0,
     imageUrl: '',
-    groupSlug: '',
-    subgroupSlug: '',
+    groupSlug: 'gravata',
+    subgroupSlug: 'lisa',
     active: true,
   });
   const [uploadMessage, setUploadMessage] = useState('');
@@ -30,8 +30,8 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
       price: initialProduct ? (initialProduct.priceCents / 100).toFixed(2).replace('.', ',') : '',
       stock: initialProduct?.stock ?? 0,
       imageUrl: initialProduct?.imageUrl || '',
-      groupSlug: initialProduct?.groupSlug || '',
-      subgroupSlug: initialProduct?.subgroupSlug || '',
+      groupSlug: initialProduct?.groupSlug || 'gravata',
+      subgroupSlug: initialProduct?.subgroupSlug || 'lisa',
       active: initialProduct?.active ?? true,
     });
   }, [initialProduct]);
@@ -65,6 +65,54 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
           onSubmit(form);
         }}
       >
+        <div className="taxonomy-box">
+          <div className="page-head">
+            <h2>Classificacao do produto</h2>
+            <p className="small">Escolha o grupo principal e a subcategoria antes de salvar. Isso organiza o catalogo e os filtros da loja.</p>
+          </div>
+
+          <div className="form-grid">
+            <div>
+              <label htmlFor="product-group">Grupo principal</label>
+              <select
+                id="product-group"
+                value={form.groupSlug}
+                onChange={(event) =>
+                  setForm({
+                    ...form,
+                    groupSlug: event.target.value,
+                    subgroupSlug: getSubgroupsForGroup(event.target.value)[0]?.slug || '',
+                  })
+                }
+                required
+              >
+                {catalogGroups.map((group) => (
+                  <option key={group.slug} value={group.slug}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="product-subgroup">Subcategoria</label>
+              <select
+                id="product-subgroup"
+                value={form.subgroupSlug}
+                onChange={(event) => setForm({ ...form, subgroupSlug: event.target.value })}
+                required
+                disabled={!form.groupSlug}
+              >
+                {subgroupOptions.map((subgroup) => (
+                  <option key={subgroup.slug} value={subgroup.slug}>
+                    {subgroup.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="form-grid">
           <div>
             <label htmlFor="product-name">Nome</label>
@@ -86,47 +134,6 @@ export function ProductEditorForm({ initialProduct, onSubmit, onCancel }) {
               onChange={(event) => setForm({ ...form, price: event.target.value })}
               required
             />
-          </div>
-
-          <div>
-            <label htmlFor="product-group">Grupo principal</label>
-            <select
-              id="product-group"
-              value={form.groupSlug}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  groupSlug: event.target.value,
-                  subgroupSlug: '',
-                })
-              }
-              required
-            >
-              <option value="">Selecione</option>
-              {catalogGroups.map((group) => (
-                <option key={group.slug} value={group.slug}>
-                  {group.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="product-subgroup">Subcategoria</label>
-            <select
-              id="product-subgroup"
-              value={form.subgroupSlug}
-              onChange={(event) => setForm({ ...form, subgroupSlug: event.target.value })}
-              required
-              disabled={!form.groupSlug}
-            >
-              <option value="">{form.groupSlug ? 'Selecione' : 'Escolha o grupo primeiro'}</option>
-              {subgroupOptions.map((subgroup) => (
-                <option key={subgroup.slug} value={subgroup.slug}>
-                  {subgroup.label}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div>
